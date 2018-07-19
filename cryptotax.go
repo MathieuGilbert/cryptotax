@@ -64,7 +64,7 @@ func main() {
 	env := &Env{db}
 
 	router := httprouter.New()
-	router.GET("/", env.index)
+	router.GET("/", env.root)
 	router.POST("/newreport", env.newReport)
 
 	router.GET("/currency", env.setCurrency)
@@ -81,24 +81,21 @@ func main() {
 
 	router.GET("/report", env.viewReport)
 
-	fmt.Println("Web server ready.")
+	log.Println("Web server ready.")
 	log.Fatal(http.ListenAndServe(":5000", router))
 }
 
-func (env *Env) index(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (env *Env) root(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	if r.Method != "GET" {
 		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
 		return
 	}
 
 	t, err := template.ParseFiles(
-		"templates/layout/base.tmpl",
-		"templates/header.tmpl",
-		"templates/layout/style.tmpl",
-		"templates/layout/js.tmpl",
-		"templates/index.tmpl",
+		"templates/index.html.tmpl",
 	)
 	if err != nil {
+		log.Printf("%+v", err)
 		http.Error(w, "Template error", http.StatusInternalServerError)
 		return
 	}

@@ -81,13 +81,20 @@ func main() {
 
 	router.GET("/report", env.viewReport)
 
+	router.ServeFiles("/web/js/*filepath", http.Dir("web/js"))
+	router.ServeFiles("/web/css/*filepath", http.Dir("web/css"))
+
 	log.Println("Web server ready.")
 	log.Fatal(http.ListenAndServe(":5000", router))
 }
 
 func (env *Env) root(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	t, err := template.ParseFiles(
-		"templates/index.html.tmpl",
+		"web/templates/index.html.tmpl",
+		"web/templates/hero.html.tmpl",
+		"web/templates/navigation.html.tmpl",
+		"web/templates/footer.html.tmpl",
+		"web/templates/root.html.tmpl",
 	)
 	if err != nil {
 		log.Printf("%+v", err)

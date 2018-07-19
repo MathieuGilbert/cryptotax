@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Cryptotax ACB Calculator</title>
+        <link rel="stylesheet" type="text/css" href="/web/css/styles.css">
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+        <script defer src="https://use.fontawesome.com/releases/v5.1.0/js/all.js"></script>
+    </head>
+    <body>
+        {{block "hero" .}}{{end}}
+        {{block "navigation" .}} {{end}}
+
+        <section class="section">
+            <div class="container">
+                <div id="content">
+                    {{block "content" .}} {{end}}
+                </div>
+            </div>
+        </section>
+
+        {{block "footer" .}} {{end}}
+
+        <script src="/web/js/scripts.js"></script>
+        <script src="/web/js/vue_components.js"></script>
+    </body>
+</html>

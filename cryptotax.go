@@ -86,11 +86,6 @@ func main() {
 }
 
 func (env *Env) root(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	if r.Method != "GET" {
-		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
-		return
-	}
-
 	t, err := template.ParseFiles(
 		"templates/index.html.tmpl",
 	)
@@ -109,11 +104,6 @@ func (env *Env) root(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 }
 
 func (env *Env) newReport(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	if r.Method != "POST" {
-		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
-		return
-	}
-
 	s, err := env.getSession(r)
 	if err == nil && s != nil {
 		env.db.KillSession(s.SessionID)
@@ -123,11 +113,6 @@ func (env *Env) newReport(w http.ResponseWriter, r *http.Request, _ httprouter.P
 }
 
 func (env *Env) setCurrency(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	if r.Method != "GET" {
-		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
-		return
-	}
-
 	t, err := template.ParseFiles(
 		"templates/layout/base.tmpl",
 		"templates/header.tmpl",
@@ -144,11 +129,6 @@ func (env *Env) setCurrency(w http.ResponseWriter, r *http.Request, _ httprouter
 }
 
 func (env *Env) createReport(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	if r.Method != "POST" {
-		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
-		return
-	}
-
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Invalid form parameters", http.StatusBadRequest)
 		return
@@ -194,11 +174,6 @@ func (env *Env) createReport(w http.ResponseWriter, r *http.Request, _ httproute
 }
 
 func (env *Env) manageFiles(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	if r.Method != "GET" {
-		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
-		return
-	}
-
 	// require an active session from this page on
 	s, err := env.getSession(r)
 	if err != nil {
@@ -238,11 +213,6 @@ func (env *Env) manageFiles(w http.ResponseWriter, r *http.Request, p httprouter
 }
 
 func (env *Env) uploadFile(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	if r.Method != "POST" {
-		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
-		return
-	}
-
 	// requires active session
 	s, err := env.getSession(r)
 	if err != nil {
@@ -353,11 +323,6 @@ func (env *Env) uploadFile(w http.ResponseWriter, r *http.Request, p httprouter.
 }
 
 func (env *Env) deleteFile(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	if r.Method != "POST" {
-		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
-		return
-	}
-
 	// requires active session
 	s, err := env.getSession(r)
 	if err != nil {
@@ -393,11 +358,6 @@ func (env *Env) deleteFile(w http.ResponseWriter, r *http.Request, p httprouter.
 }
 
 func (env *Env) viewReport(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	if r.Method != "GET" {
-		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
-		return
-	}
-
 	// requires active session
 	s, err := env.getSession(r)
 	if err != nil {
@@ -464,11 +424,6 @@ func (env *Env) viewReport(w http.ResponseWriter, r *http.Request, p httprouter.
 }
 
 func (env *Env) manageTrades(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	if r.Method != "GET" {
-		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
-		return
-	}
-
 	// requires active session
 	s, err := env.getSession(r)
 	if err != nil {
@@ -499,11 +454,6 @@ func (env *Env) manageTrades(w http.ResponseWriter, r *http.Request, p httproute
 }
 
 func (env *Env) addTrade(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	if r.Method != "POST" {
-		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
-		return
-	}
-
 	// requires active session
 	s, err := env.getSession(r)
 	if err != nil {
@@ -580,11 +530,6 @@ func (env *Env) addTrade(w http.ResponseWriter, r *http.Request, p httprouter.Pa
 }
 
 func (env *Env) deleteTrade(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	if r.Method != "POST" {
-		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
-		return
-	}
-
 	// requires active session
 	s, err := env.getSession(r)
 	if err != nil {
@@ -619,11 +564,6 @@ func (env *Env) deleteTrade(w http.ResponseWriter, r *http.Request, p httprouter
 }
 
 func (env *Env) downloadTrades(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	if r.Method != "POST" {
-		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
-		return
-	}
-
 	// requires active session
 	s, err := env.getSession(r)
 	if err != nil {

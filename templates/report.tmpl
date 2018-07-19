@@ -1,0 +1,30 @@
+{{define "content"}}
+<div>Found report: {{.Report.ID}}</div>
+<div>Currency: {{.Report.Currency}}</div>
+
+{{if gt (len .ACBs) 0}}
+<table>
+    <tr>
+        <th>Asset</th>
+        <th>Acquired</th>
+        <th>Quantity</th>
+        <th>Proceeds</th>
+        <th>ACB</th>
+        <th>Expenses</th>
+        <th>Income</th>
+    </tr>
+    {{range $i, $c := .ACBs}}
+    <tr>
+        <td>{{$c.Asset}}</td>
+        <td>{{$c.YearAcquired}}</td>
+        <td>{{$c.Quantity}}</td>
+        <td>{{fiat $c.Proceeds}}</td>
+        <td>{{fiat $c.CostBase}}</td>
+        <td>{{fiat $c.DispositionExpenses}}</td>
+        <td>{{fiat $c.NetIncome}}</td>
+    </tr>
+    {{end}}
+</table>
+{{end}}
+<a href="/trades">Back</a>
+{{end}}

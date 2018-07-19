@@ -1,0 +1,11 @@
+{{define "content"}}
+<form action="/currency" method="post">
+    <span>Base currency:</span>
+    <select name="currency">
+        {{range $k, $v := .}}
+            <option value="{{$v}}">{{$v}}</option>
+        {{end}}
+    </select>
+    <input type="submit" value="Next">
+</form>
+{{end}}

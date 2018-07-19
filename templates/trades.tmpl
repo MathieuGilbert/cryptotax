@@ -1,0 +1,53 @@
+{{define "content"}}
+<ul>
+    <li>
+        <form action="/trades" method="POST">
+            <div>
+                Date:<input type="date" name="date">
+            </div>
+            <div>
+                Asset:<input type="text" name="asset">
+            </div>
+            <div>
+                <input id="buy" type="radio" name="action" value="buy" checked>
+                <label for="buy">buy</label>
+                <input id="sell" type="radio" name="action" value="sell">
+                <label for="sell">sell</label>
+            </div>
+            <div>
+                Quantity:<input type="text" name="quantity">
+            </div>
+            <div>
+                Cost:<input type="text" name="cost">
+                Fee:<input type="text" name="fee">
+                In:<input type="text" name="base">
+            </div>
+            <div>
+                <input type="submit" value="Add">
+            </div>
+        </form>
+    </li>
+    {{range $i, $t := .}}
+    <li>
+        <div>{{$t.Date}}</div>
+        <div>{{$t.Asset}}</div>
+        <div>{{$t.Action}}</div>
+        <div>{{$t.Quantity}}</div>
+        <div>{{$t.BaseCurrency}}</div>
+        <div>{{$t.BasePrice}}</div>
+        <div>{{$t.BaseFee}}</div>
+        <div>
+            <form action="/deletetrade" method="POST">
+                <input type="hidden" name="tradeid" value="{{$t.ID}}">
+                <input type="submit" value="Remove">
+            </form>
+        </div>
+    </li>
+    {{end}}
+</ul>
+<form action="/downloadtrades" method="POST">
+    <input type="submit" value="Download Manual Trades">
+</form>
+<a href="/upload">Back</a>
+<a href="/report">Next</a>
+{{end}}

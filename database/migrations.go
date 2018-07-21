@@ -274,6 +274,117 @@ func start(db *gorm.DB) error {
 				return tx.Model(&Trade{}).AddForeignKey("file_id", "files(id)", "RESTRICT", "RESTRICT").Error
 			},
 		},
+		// Add users table
+		{
+			ID: "20180720172813",
+			Migrate: func(tx *gorm.DB) error {
+				type User struct {
+					ID       uint   `gorm:"primary_key"`
+					Email    string `gorm:"not null"`
+					Password string `gorm:"not null"`
+				}
+				if err := tx.AutoMigrate(&User{}).Error; err != nil {
+					return err
+				}
+				return nil
+			},
+			Rollback: func(tx *gorm.DB) error {
+				return tx.DropTable("users").Error
+			},
+		},
+		// Put user in session instead of report
+		{
+			ID: "20180720172908",
+			Migrate: func(tx *gorm.DB) error {
+				type Session struct {
+					ID        uint      `gorm:"primary_key"`
+					CreatedAt time.Time `gorm:"not null"`
+					UpdatedAt time.Time `gorm:"not null"`
+					SessionID string    `gorm:"not null"`
+					CSRFToken string    `gorm:"not null"`
+					Valid     bool      `gorm:"not null"`
+					Expires   time.Time `gorm:"not null"`
+					UserID    uint      ``
+				}
+
+				if err := tx.Model(&Session{}).RemoveForeignKey("report_id", "reports(id)").Error; err != nil {
+					return err
+				}
+
+				if err := tx.Model(&Session{}).DropColumn("report_id").Error; err != nil {
+					return err
+				}
+
+				if err := tx.AutoMigrate(&Session{}).Error; err != nil {
+					return err
+				}
+
+				if err := tx.Model(&Session{}).AddForeignKey("user_id", "users(id)", "RESTRICT", "RESTRICT").Error; err != nil {
+					return err
+				}
+
+				return nil
+			},
+			Rollback: func(tx *gorm.DB) error {
+				type Session struct {
+					ReportID uint ``
+				}
+
+				if err := tx.Model(&Session{}).RemoveForeignKey("user_id", "users(id)").Error; err != nil {
+					return err
+				}
+
+				if err := tx.Model(&Session{}).DropColumn("user_id").Error; err != nil {
+					return err
+				}
+
+				if err := tx.AutoMigrate(&Session{}).Error; err != nil {
+					return err
+				}
+
+				if err := tx.Model(Session{}).AddForeignKey("report_id", "reports(id)", "RESTRICT", "RESTRICT").Error; err != nil {
+					return err
+				}
+
+				return nil
+			},
+		},
+		// Add createdat to users
+		{
+			ID: "20180720173153",
+			Migrate: func(tx *gorm.DB) error {
+				type User struct {
+					ID        uint      `gorm:"primary_key"`
+					CreatedAt time.Time `gorm:"not null"`
+					Email     string    `gorm:"not null"`
+					Password  string    `gorm:"not null"`
+				}
+				if err := tx.AutoMigrate(&User{}).Error; err != nil {
+					return err
+				}
+				return nil
+			},
+			Rollback: func(tx *gorm.DB) error {
+				type User struct{}
+				if err := tx.Model(&User{}).DropColumn("created_at").Error; err != nil {
+					return err
+				}
+
+				return nil
+			},
+		},
+		// Make UserID nullable reference by removing the FK
+		{
+			ID: "20180721082820",
+			Migrate: func(tx *gorm.DB) error {
+				type Session struct{}
+				return tx.Model(&Session{}).RemoveForeignKey("user_id", "users(id)").Error
+			},
+			Rollback: func(tx *gorm.DB) error {
+				type Session struct{}
+				return tx.Model(Session{}).AddForeignKey("user_id", "users(id)", "RESTRICT", "RESTRICT").Error
+			},
+		},
 	})
 
 	return m.Migrate()

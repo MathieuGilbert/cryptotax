@@ -12,13 +12,12 @@ func TestConvert1(t *testing.T) {
 	// clear cache
 	redis.New().Delete("ETHBTC1489536000")
 
-	type TestCase struct {
+	tcs := []struct {
 		C *Conversion
 		X *Conversion
-	}
-	tcs := []*TestCase{
+	}{
 		// sets rate to 1 from same from/to asset
-		&TestCase{
+		{
 			C: &Conversion{
 				From: &Asset{Amount: decimal.NewFromFloat(2), Currency: "BTC"},
 				To:   &Asset{Currency: "BTC"},
@@ -32,7 +31,7 @@ func TestConvert1(t *testing.T) {
 			},
 		},
 		// does a conversion, hitting the actual API
-		&TestCase{
+		{
 			C: &Conversion{
 				From: &Asset{Amount: decimal.NewFromFloat(10), Currency: "ETH"},
 				To:   &Asset{Currency: "BTC"},
@@ -46,7 +45,7 @@ func TestConvert1(t *testing.T) {
 			},
 		},
 		// same as previous, should hit the cache
-		&TestCase{
+		{
 			C: &Conversion{
 				From: &Asset{Amount: decimal.NewFromFloat(10), Currency: "ETH"},
 				To:   &Asset{Currency: "BTC"},

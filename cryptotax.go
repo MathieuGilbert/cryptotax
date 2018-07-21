@@ -1,27 +1,19 @@
 package main
 
 import (
-	"crypto/md5"
 	"encoding/csv"
-	"fmt"
-	"html"
 	"html/template"
-	"io"
 	"log"
 	"net/http"
 	"path"
 	"runtime"
-	"strconv"
-	"strings"
-	"time"
 
+	"github.com/goware/emailx"
 	_ "github.com/jinzhu/gorm/dialects/postgres" // db driver
 	"github.com/julienschmidt/httprouter"
-	"github.com/mathieugilbert/cryptotax/cmd/acb"
 	"github.com/mathieugilbert/cryptotax/cmd/parsers"
 	"github.com/mathieugilbert/cryptotax/database"
 	"github.com/mathieugilbert/cryptotax/models"
-	"github.com/shopspring/decimal"
 )
 
 // Env - holds the handlers
@@ -34,22 +26,53 @@ type Parser interface {
 	Parse(*csv.Reader) ([]parsers.Trade, error)
 }
 
-// SupportedCurrencies is a list of supported base currencies
-var SupportedCurrencies = []string{
-	"CAD",
-	"USD",
+// Presenter defines template data
+type Presenter struct {
+	LoggedIn  bool
+	CSRFToken string
+	Data      interface{}
+	Form      interface{}
 }
 
-// SupportedExchanges is a list of supported source exchanges
-var SupportedExchanges = []string{
-	"Coinbase",
-	"Kucoin",
-	"Cryptotax",
+// FormField for persistent form values and messages in responses
+type FormField struct {
+	Value   string
+	Message string
+	Success bool
 }
+
+// Form to hold persistent posted-back values and a message
+type Form struct {
+	Fields  map[string]*FormField
+	Message string
+	Success bool
+}
+
+var (
+	// SupportedCurrencies is a list of supported base currencies
+	SupportedCurrencies = []string{
+		"CAD",
+		"USD",
+	}
+	// SupportedExchanges is a list of supported source exchanges
+	SupportedExchanges = []string{
+		"Coinbase",
+		"Kucoin",
+		"Cryptotax",
+	}
+	// TemplateFiles is a list of common template files needed for rendering
+	TemplateFiles = []string{
+		"web/templates/index.html.tmpl",
+		"web/templates/hero.html.tmpl",
+		"web/templates/navigation.html.tmpl",
+		"web/templates/footer.html.tmpl",
+	}
+)
 
 func init() {
 	// Use all CPU cores
 	runtime.GOMAXPROCS(runtime.NumCPU())
+	// run the latest migrations
 	database.Migrate()
 }
 
@@ -65,21 +88,24 @@ func main() {
 
 	router := httprouter.New()
 	router.GET("/", env.root)
-	router.POST("/newreport", env.newReport)
+	router.GET("/register", env.registration)
+	router.POST("/register", env.register)
 
-	router.GET("/currency", env.setCurrency)
-	router.POST("/currency", env.createReport)
-
-	router.GET("/upload", env.manageFiles)
-	router.POST("/upload", env.uploadFile)
-	router.POST("/deletefile", env.deleteFile)
-
-	router.GET("/trades", env.manageTrades)
-	router.POST("/trades", env.addTrade)
-	router.POST("/deletetrade", env.deleteTrade)
-	router.POST("/downloadtrades", env.downloadTrades)
-
-	router.GET("/report", env.viewReport)
+	//router.POST("/newreport", env.newReport)
+	//
+	//router.GET("/currency", env.setCurrency)
+	//router.POST("/currency", env.createReport)
+	//
+	//router.GET("/upload", env.manageFiles)
+	//router.POST("/upload", env.uploadFile)
+	//router.POST("/deletefile", env.deleteFile)
+	//
+	//router.GET("/trades", env.manageTrades)
+	//router.POST("/trades", env.addTrade)
+	//router.POST("/deletetrade", env.deleteTrade)
+	//router.POST("/downloadtrades", env.downloadTrades)
+	//
+	//router.GET("/report", env.viewReport)
 
 	router.ServeFiles("/web/js/*filepath", http.Dir("web/js"))
 	router.ServeFiles("/web/components/*filepath", http.Dir("web/components"))
@@ -90,27 +116,217 @@ func main() {
 }
 
 func (env *Env) root(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	t, err := template.ParseFiles(
-		"web/templates/index.html.tmpl",
-		"web/templates/hero.html.tmpl",
-		"web/templates/navigation.html.tmpl",
-		"web/templates/footer.html.tmpl",
-		"web/templates/root.html.tmpl",
-	)
+	// check for existing session user
+	u, _ := env.currentUser(r)
+	if u == nil {
+		// no session user, make new session
+		if err := env.setSessionCookie(w, nil); err != nil {
+			log.Printf("%+v", err)
+			http.Error(w, "Unable to set cookie", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// build page
+	t, err := template.ParseFiles(append(TemplateFiles, "web/templates/root.html.tmpl")...)
 	if err != nil {
 		log.Printf("%+v", err)
 		http.Error(w, "Template error", http.StatusInternalServerError)
 		return
 	}
 
-	s, err := env.getSession(r)
-	if err != nil || s == nil {
-		t.Execute(w, false)
-	} else {
-		t.Execute(w, true)
+	// define template data
+	type Data struct {
+		Name string
 	}
+
+	pr := &Presenter{
+		LoggedIn: u != nil,
+		Data:     &Data{Name: "teddy"},
+	}
+
+	t.Execute(w, pr)
 }
 
+func (env *Env) registration(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	// check for existing session
+	s, _ := env.getSession(r)
+	if s == nil {
+		// make new session
+		if err := env.setSessionCookie(w, nil); err != nil {
+			log.Printf("%+v", err)
+			http.Error(w, "Unable to set cookie", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// must not be logged in
+	if s.UserID != 0 {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
+	// build page
+	fm := template.FuncMap{
+		"hasMessage":   hasMessage,
+		"fieldMessage": fieldMessage,
+		"fieldClass":   fieldClass,
+		"fieldValue":   fieldValue,
+	}
+	files := append(TemplateFiles, "web/templates/register.html.tmpl")
+	t, err := template.New(path.Base(files[0])).Funcs(fm).ParseFiles(files...)
+	if err != nil {
+		log.Printf("%+v", err)
+		http.Error(w, "Template error", http.StatusInternalServerError)
+		return
+	}
+
+	// define template data
+	pr := &Presenter{
+		LoggedIn:  false,
+		CSRFToken: s.CSRFToken,
+		Form:      &Form{},
+	}
+
+	t.Execute(w, pr)
+}
+
+func (env *Env) register(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	// verify existing session
+	s, _ := env.getSession(r)
+	if s == nil {
+		http.Error(w, "Session expired", http.StatusBadRequest)
+		return
+	}
+
+	// get form fields
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid form parameters", http.StatusBadRequest)
+		return
+	}
+	// verify CSRF token
+	if r.FormValue("csrf_token") != s.CSRFToken {
+		http.Error(w, "Invalid CSRF token", http.StatusBadRequest)
+		return
+	}
+	// read form
+	e := template.HTMLEscapeString(r.FormValue("email"))
+	p := r.FormValue("password")
+	pp := r.FormValue("password_confirm")
+
+	// validate inputs
+	f := &Form{Fields: make(map[string]*FormField)}
+	// persist fields
+	f.Fields["email"] = &FormField{Value: e, Success: true}
+	f.Success = true
+
+	if err := emailx.Validate(e); err != nil {
+		f.Fields["email"] = &FormField{
+			Message: "Invalid email.",
+			Success: false,
+		}
+		f.Success = false
+	}
+
+	if p != pp {
+		f.Fields["password_confirm"] = &FormField{
+			Message: "Passwords must match.",
+			Success: false,
+		}
+		f.Success = false
+	}
+
+	if len(p) < 8 {
+		f.Fields["password"] = &FormField{
+			Message: "Password must be at least 8 characters.",
+			Success: false,
+		}
+		f.Success = false
+	}
+
+	// TODO: ensure email available and save succeeds
+
+	if !f.Success {
+		f.Message = "Please fix the above errors to register."
+
+		// build page
+		fm := template.FuncMap{
+			"hasMessage":   hasMessage,
+			"fieldMessage": fieldMessage,
+			"fieldClass":   fieldClass,
+			"fieldValue":   fieldValue,
+		}
+		files := append(TemplateFiles, "web/templates/register.html.tmpl")
+		t, err := template.New(path.Base(files[0])).Funcs(fm).ParseFiles(files...)
+		if err != nil {
+			log.Printf("%+v", err)
+			http.Error(w, "Template error", http.StatusInternalServerError)
+			return
+		}
+
+		pr := &Presenter{
+			LoggedIn:  false,
+			CSRFToken: s.CSRFToken,
+			Form:      f,
+		}
+		t.Execute(w, pr)
+
+		return
+	}
+
+	// build page
+	t, err := template.ParseFiles(append(TemplateFiles, "web/templates/register_success.html.tmpl")...)
+	if err != nil {
+		log.Printf("%+v", err)
+		http.Error(w, "Template error", http.StatusInternalServerError)
+		return
+	}
+
+	// define template data
+	type Data struct {
+		Email string
+	}
+
+	pr := &Presenter{
+		LoggedIn: false,
+		Data:     &Data{Email: e},
+	}
+
+	t.Execute(w, pr)
+}
+
+func hasMessage(field string, form *Form) bool {
+	if f := form.Fields[field]; f != nil {
+		return f.Message != ""
+	}
+	return false
+}
+
+func fieldClass(field string, form *Form) string {
+	if f := form.Fields[field]; f != nil {
+		if f.Success {
+			return "success"
+		}
+		return "danger"
+	}
+	return ""
+}
+
+func fieldMessage(field string, form *Form) string {
+	if f := form.Fields[field]; f != nil {
+		return f.Message
+	}
+	return ""
+}
+
+func fieldValue(field string, form *Form) string {
+	if f := form.Fields[field]; f != nil {
+		return f.Value
+	}
+	return ""
+}
+
+/*
 func (env *Env) newReport(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	s, err := env.getSession(r)
 	if err == nil && s != nil {
@@ -597,6 +813,7 @@ func (env *Env) downloadTrades(w http.ResponseWriter, r *http.Request, p httprou
 	w.Header().Set("Content-Type", "text/csv")
 	w.Write(csv)
 }
+*/
 
 func contains(list []string, item string) bool {
 	if item == "" {
@@ -611,8 +828,8 @@ func contains(list []string, item string) bool {
 	return false
 }
 
-func (env *Env) setSessionCookie(w http.ResponseWriter, r *models.Report) error {
-	s, err := env.db.NewSession(r)
+func (env *Env) setSessionCookie(w http.ResponseWriter, u *models.User) error {
+	s, err := env.db.NewSession(u)
 	if err != nil {
 		return err
 	}
@@ -621,7 +838,7 @@ func (env *Env) setSessionCookie(w http.ResponseWriter, r *models.Report) error 
 		Value:    s.SessionID,
 		HttpOnly: true,
 		Path:     "/",
-		Secure:   false,
+		Secure:   false, // TODO: use config to secure on live servers
 		Expires:  s.Expires,
 	}
 	http.SetCookie(w, cookie)
@@ -645,6 +862,23 @@ func (env *Env) getSession(r *http.Request) (*models.Session, error) {
 		return nil, nil
 	}
 	return s, err
+}
+
+func (env *Env) currentUser(r *http.Request) (*models.User, error) {
+	s, err := env.getSession(r)
+	if err != nil {
+		return nil, err
+	}
+	if s == nil {
+		return nil, nil
+	}
+
+	u, err := env.db.GetUser(s.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	return u, nil
 }
 
 func parse(p Parser, r *csv.Reader) ([]parsers.Trade, error) {

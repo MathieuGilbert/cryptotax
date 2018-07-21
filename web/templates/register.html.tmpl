@@ -1,0 +1,48 @@
+{{define "content"}}
+<form method="POST" action="/register">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+
+    <div class="field">
+        <label class="label">Email</label>
+        <div class="control has-icons-left">
+            <input class="input" type="email" name="email" placeholder="email@example.com" value="{{fieldValue "email" .Form}}">
+            <span class="icon is-small is-left">
+                <i class="fas fa-envelope"></i>
+            </span>
+        </div>
+        {{if hasMessage "email" .Form}}
+            <p class="help is-{{fieldClass "email" .Form}}">{{fieldMessage "email" .Form}}</p>
+        {{end}}
+    </div>
+    <div class="field">
+        <label class="label">Password</label>
+        <div class="control has-icons-left">
+            <input class="input" type="password" name="password" placeholder="8 characters or more">
+            <span class="icon is-small is-left">
+                <i class="fas fa-key"></i>
+            </span>
+        </div>
+        {{if hasMessage "password" .Form}}
+            <p class="help is-{{fieldClass "password" .Form}}">{{fieldMessage "password" .Form}}</p>
+        {{end}}
+    </div>
+    <div class="field">
+        <label class="label">Confirm Password</label>
+        <div class="control has-icons-left">
+            <input class="input" type="password" name="password_confirm" placeholder="Must match">
+            <span class="icon is-small is-left">
+                <i class="fas fa-key"></i>
+            </span>
+        </div>
+        {{if hasMessage "password_confirm" .Form}}
+            <p class="help is-{{fieldClass "password_confirm" .Form}}">{{fieldMessage "password_confirm" .Form}}</p>
+        {{end}}
+    </div>
+    <div class="field">
+        <div class="control">
+            <input type="submit" class="button is-link" value="Register">
+        </div>
+    </div>
+    <p class="help is-danger">{{.Form.Message}}</p>
+</form>
+{{end}}

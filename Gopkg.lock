@@ -2,6 +2,12 @@
 
 
 [[projects]]
+  name = "github.com/go-mail/mail"
+  packages = ["."]
+  revision = "63235f23494bf20d713a585bce40b2a0675c2f77"
+  version = "2.2.0"
+
+[[projects]]
   name = "github.com/go-redis/cache"
   packages = [
     ".",
@@ -31,6 +37,12 @@
   packages = ["proto"]
   revision = "b4deda0973fb4c70b50d226b1af49f3da59f5265"
   version = "v1.1.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/goware/emailx"
+  packages = ["."]
+  revision = "0bae9679d4e31a54efa4b1cc61dd78eadda83b1a"
 
 [[projects]]
   name = "github.com/jinzhu/gorm"
@@ -80,6 +92,15 @@
 
 [[projects]]
   branch = "master"
+  name = "golang.org/x/crypto"
+  packages = [
+    "bcrypt",
+    "blowfish"
+  ]
+  revision = "a2144134853fc9a27a7b1e3eb4f19f1a76df13c9"
+
+[[projects]]
+  branch = "master"
   name = "golang.org/x/net"
   packages = ["context"]
   revision = "a680a1efc54dd51c040b3b5ce4939ea3cf2ea0d1"
@@ -101,6 +122,18 @@
   version = "v1.1.0"
 
 [[projects]]
+  branch = "v3"
+  name = "gopkg.in/alexcesaro/quotedprintable.v3"
+  packages = ["."]
+  revision = "2caba252f4dc53eaf6b553000885530023f54623"
+
+[[projects]]
+  name = "gopkg.in/gomail.v2"
+  packages = ["."]
+  revision = "41f3572897373c5538c50a2402db15db079fa4fd"
+  version = "2.0.0"
+
+[[projects]]
   name = "gopkg.in/gormigrate.v1"
   packages = ["."]
   revision = "21b0b93e8253d575d9185974835423f98d30158d"
@@ -109,6 +142,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "2ffe5887e04ec9b970a1bb4bfe615f7ad6c8d93361c6063f8e7c3abec839bc1b"
+  inputs-digest = "0470685393b88c3ed0f2ab27ef7588a75ce6f173e7b13c3889066f99782ad95a"
   solver-name = "gps-cdcl"
   solver-version = 1

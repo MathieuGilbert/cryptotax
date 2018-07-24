@@ -1,11 +1,7 @@
 package models
 
 import (
-	"crypto/rand"
-	"encoding/base64"
 	"errors"
-	"fmt"
-	"io"
 	"time"
 )
 
@@ -24,8 +20,8 @@ type Session struct {
 // NewSession creates a new session
 func (db *DB) NewSession(u *User) (*Session, error) {
 	session := &Session{
-		SessionID: random(128),
-		CSRFToken: random(256),
+		SessionID: Random(128),
+		CSRFToken: Random(256),
 		Valid:     true,
 		Expires:   time.Now().AddDate(1, 0, 0),
 	}
@@ -58,12 +54,7 @@ func (db *DB) GetSession(sid string) (*Session, error) {
 // KillSession invalidates a session
 func (db *DB) KillSession(s *Session) error {
 	s.Valid = false
-
-	if err := db.Save(s).Error; err != nil {
-		return errors.New("unable to save session")
-	}
-
-	return nil
+	return db.Save(s).Error
 }
 
 // UpgradeSession applies user to the session
@@ -72,25 +63,14 @@ func (db *DB) UpgradeSession(s *Session, u *User) error {
 		return errors.New("session invalid/expired")
 	}
 
-	s.CSRFToken = random(256)
+	s.CSRFToken = Random(256)
 	s.Valid = true
 	s.Expires = time.Now().AddDate(1, 0, 0)
 	s.UserID = u.ID
 
 	if err := db.Save(s).Error; err != nil {
-		return errors.New("unable to save session")
+		return err
 	}
 
 	return nil
-}
-
-// Random returns a random, url safe value of the bit length passed in
-// https://tech.townsourced.com/post/anatomy-of-a-go-web-app-authentication/
-func random(bits int) string {
-	result := make([]byte, bits/8)
-	_, err := io.ReadFull(rand.Reader, result)
-	if err != nil {
-		panic(fmt.Sprintf("Error generating random values: %v", err))
-	}
-	return base64.RawURLEncoding.EncodeToString(result)
 }

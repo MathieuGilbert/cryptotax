@@ -1,0 +1,12 @@
+{{define "content"}}
+<div class="container is-fluid">
+    <div class="notification">
+    {{if .Data.Confirmed}}
+        <p>Thank you for verifying your email address. You may now <a href="/login">log in</a> and start using the site.</p>
+    {{else}}
+        <p>Unable to verify your email address with the provided token.</p>
+        <p>Try logging in again and request a new verification link if needed.</p>
+    {{end}}
+    </div>
+</div>
+{{end}}

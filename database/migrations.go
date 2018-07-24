@@ -382,7 +382,40 @@ func start(db *gorm.DB) error {
 			},
 			Rollback: func(tx *gorm.DB) error {
 				type Session struct{}
-				return tx.Model(Session{}).AddForeignKey("user_id", "users(id)", "RESTRICT", "RESTRICT").Error
+				return tx.Model(&Session{}).AddForeignKey("user_id", "users(id)", "RESTRICT", "RESTRICT").Error
+			},
+		},
+		// make email a unique index on users
+		{
+			ID: "20180721184203",
+			Migrate: func(tx *gorm.DB) error {
+				type User struct{}
+				return tx.Model(&User{}).AddUniqueIndex("idx_user_email", "email").Error
+			},
+			Rollback: func(tx *gorm.DB) error {
+				type User struct{}
+				return tx.Model(&User{}).RemoveIndex("idx_user_email").Error
+			},
+		},
+		// add email verification token to users
+		{
+			ID: "20180722153137",
+			Migrate: func(tx *gorm.DB) error {
+				type User struct {
+					ConfirmToken string ``
+					Confirmed    bool   ``
+				}
+				return tx.AutoMigrate(&User{}).Error
+			},
+			Rollback: func(tx *gorm.DB) error {
+				type User struct{}
+				if err := tx.Model(&User{}).DropColumn("confirm_token").Error; err != nil {
+					return err
+				}
+				if err := tx.Model(&User{}).DropColumn("confirmed").Error; err != nil {
+					return err
+				}
+				return nil
 			},
 		},
 	})

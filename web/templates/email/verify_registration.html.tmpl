@@ -1,0 +1,31 @@
+{{define "title"}}
+Verify Registration
+{{end}}
+
+{{define "preheader"}}
+Action required to verify email address and complete registration.
+{{end}}
+
+{{define "content"}}
+<p>Thank you for registering with Cryptotax!</p>
+<p>In order to complete your registration, please click the button:</p>
+<table border="0" cellpadding="0" cellspacing="0" class="btn btn-primary">
+  <tbody>
+    <tr>
+      <td align="left">
+        <table border="0" cellpadding="0" cellspacing="0">
+          <tbody>
+            <tr>
+              <td>
+                  <a href="http://localhost:5000/verify_email?t={{.Token}}" target="_blank">Verify Email</a>
+                  <br>
+                  Or visit: http://localhost:5000/verify_email?t={{.Token}}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </td>
+    </tr>
+  </tbody>
+</table>
+{{end}}

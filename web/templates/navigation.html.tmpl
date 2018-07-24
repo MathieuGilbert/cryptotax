@@ -1,30 +1,33 @@
 {{define "navigation"}}
-<nav class="navbar is-primary" role="navigation" aria-label="main navigation">
+<nav class="navbar is-dark" role="navigation" aria-label="main navigation">
     <div class="navbar-brand">
         <a class="navbar-item" href="/" style="font-weight:bold;">MG</a>
 
         <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
-            <span></span>
-            <span></span>
             {{if .LoggedIn}}
-                <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
             {{end}}
+            <span></span>
+            <span></span>
         </a>
     </div>
     <div class="navbar-menu">
         <div class="navbar-start">
             {{if .LoggedIn}}
-                <a href="#" class="navbar-item is-active">Exchange Data</a>
-                <a href="#" class="navbar-item">Other Trades</a>
-                <a href="#" class="navbar-item">Reports</a>
+            <a href="#" class="navbar-item is-active">Exchange Data</a>
+            <a href="#" class="navbar-item">Other Trades</a>
+            <a href="#" class="navbar-item">Reports</a>
             {{end}}
         </div>
         <div class="navbar-end">
             {{if .LoggedIn}}
-                <a href="#" class="navbar-item">User Profile</a>
+            <a href="#" class="navbar-item">User Profile</a>
+            <a href="/logout" class="navbar-item">Log Out</a>
             {{else}}
-                <a href="#" class="navbar-item">Log In</a>
-                <a href="/register" class="navbar-item">Register</a>
+            <a href="/register" class="navbar-item">Register</a>
+            <a href="/login" class="navbar-item">Log In</a>
             {{end}}
         </div>
     </div>

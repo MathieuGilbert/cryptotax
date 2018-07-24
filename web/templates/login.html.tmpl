@@ -1,0 +1,29 @@
+{{define "content"}}
+<form method="POST" action="/login">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <div class="field">
+        <label class="label">Email</label>
+        <div class="control has-icons-left">
+            <input class="input" type="email" name="email" placeholder="email@example.com">
+            <span class="icon is-small is-left">
+                <i class="fas fa-envelope"></i>
+            </span>
+        </div>
+    </div>
+    <div class="field">
+        <label class="label">Password</label>
+        <div class="control has-icons-left">
+            <input class="input" type="password" name="password">
+            <span class="icon is-small is-left">
+                <i class="fas fa-key"></i>
+            </span>
+        </div>
+    </div>
+    <div class="field">
+        <div class="control">
+            <input type="submit" class="button is-link" value="Log In">
+        </div>
+    </div>
+    <p class="help is-danger">{{.Form.Message}}</p>
+</form>
+{{end}}

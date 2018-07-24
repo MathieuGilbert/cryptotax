@@ -25,6 +25,10 @@ type Datastore interface {
 	GetSession(string) (*Session, error)
 	KillSession(*Session) error
 	GetUser(uint) (*User, error)
+	EmailExists(string) bool
+	RegisterUser(string, string) (*User, error)
+	Authenticate(string, string) (*User, error)
+	VerifyEmail(string) bool
 }
 
 // DB wraps gorm.DB

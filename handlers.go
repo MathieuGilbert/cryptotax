@@ -2,18 +2,23 @@ package main
 
 import (
 	"bytes"
+	"crypto/md5"
 	"crypto/tls"
+	"encoding/json"
+	"fmt"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-mail/mail"
 	"github.com/goware/emailx"
 	"github.com/julienschmidt/httprouter"
 )
 
-func (env *Env) root(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (env *Env) getRoot(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	// check for existing session user
 	u, _ := env.currentUser(r)
 	if u == nil {
@@ -41,9 +46,9 @@ func (env *Env) root(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 	t.Execute(w, pr)
 }
 
-func (env *Env) registration(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (env *Env) getRegister(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	// check for existing session
-	s, _ := env.getSession(r)
+	s, _ := env.session(r)
 	if s == nil {
 		// make new session
 		ns, err := env.setSessionCookie(w, nil)
@@ -79,13 +84,13 @@ func (env *Env) registration(w http.ResponseWriter, r *http.Request, _ httproute
 	t.Execute(w, pr)
 }
 
-func (env *Env) register(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (env *Env) postRegister(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	// page redering details
 	var file string
 	pr := &Presenter{LoggedIn: false}
 
 	// verify existing session
-	s, _ := env.getSession(r)
+	s, _ := env.session(r)
 	if s == nil {
 		http.Error(w, "Session expired", http.StatusBadRequest)
 		return
@@ -187,9 +192,32 @@ func (env *Env) register(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 	t.Execute(w, pr)
 }
 
-func (env *Env) loginPage(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (env *Env) getVerify(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	// build page
+	t, err := pageTemplate("web/templates/verify.html.tmpl")
+	if err != nil {
+		log.Printf("%+v", err)
+		http.Error(w, "Template error", http.StatusInternalServerError)
+		return
+	}
+
+	// define template data
+	pr := &Presenter{
+		LoggedIn: false,
+	}
+
+	// get token from query string
+	token := r.URL.Query().Get("t")
+	// attempt to verify the token
+	ok := env.db.VerifyEmail(token)
+	pr.Data = struct{ Confirmed bool }{Confirmed: ok}
+
+	t.Execute(w, pr)
+}
+
+func (env *Env) getLogin(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	// redirect if already logged in
-	s, _ := env.getSession(r)
+	s, _ := env.session(r)
 	if s == nil {
 		// make new session
 		ns, err := env.setSessionCookie(w, nil)
@@ -224,9 +252,9 @@ func (env *Env) loginPage(w http.ResponseWriter, r *http.Request, _ httprouter.P
 	t.Execute(w, pr)
 }
 
-func (env *Env) login(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (env *Env) postLogin(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	// verify existing session
-	s, _ := env.getSession(r)
+	s, _ := env.session(r)
 	if s == nil {
 		http.Error(w, "Session expired", http.StatusBadRequest)
 		return
@@ -299,8 +327,8 @@ func (env *Env) login(w http.ResponseWriter, r *http.Request, _ httprouter.Param
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-func (env *Env) logout(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	s, _ := env.getSession(r)
+func (env *Env) getLogout(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	s, _ := env.session(r)
 
 	if s != nil && s.UserID != 0 {
 		env.db.KillSession(s)
@@ -309,25 +337,183 @@ func (env *Env) logout(w http.ResponseWriter, r *http.Request, _ httprouter.Para
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-func (env *Env) verifyEmail(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (env *Env) getFiles(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	// require an active session and user
+	_, err := env.currentUser(r)
+	if err != nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
 	// build page
-	t, err := pageTemplate("web/templates/verify_email.html.tmpl")
+	t, err := pageTemplate("web/templates/manage_files.html.tmpl")
 	if err != nil {
 		log.Printf("%+v", err)
 		http.Error(w, "Template error", http.StatusInternalServerError)
 		return
 	}
 
-	// define template data
 	pr := &Presenter{
-		LoggedIn: false,
+		Data: struct{ Exchanges []string }{SupportedExchanges},
+		//Files:     fs,
 	}
-
-	// get token from query string
-	token := r.URL.Query().Get("t")
-	// attempt to verify the token
-	ok := env.db.VerifyEmail(token)
-	pr.Data = struct{ Confirmed bool }{Confirmed: ok}
 
 	t.Execute(w, pr)
 }
+
+func (env *Env) postUploadAsync(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	// requires active session
+	_, err := env.session(r)
+	if err != nil {
+		http.Error(w, "Expired session", http.StatusBadRequest)
+		return
+	}
+
+	// parse the form fields
+	r.ParseMultipartForm(32 << 20)
+
+	// struct for response data
+	type File struct {
+		Hash    string `json:"hash"`
+		Name    string `json:"name"`
+		Date    string `json:"date"`
+		Message string `json:"message"`
+		Success bool   `json:"success"`
+	}
+	type Response struct {
+		Files []File `json:"files"`
+	}
+	resp := &Response{}
+
+	m := r.MultipartForm
+	fhs := m.File["file"]
+	for _, fh := range fhs {
+		success := true
+		var msg string
+		//for each fileheader, get a handle to the actual file
+		file, err := fh.Open()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer file.Close()
+
+		//src := r.FormValue("exchange")
+		//if !contains(SupportedExchanges, src) {
+		//	http.Error(w, "Invalid exchange", http.StatusBadRequest)
+		//	return
+		//}
+
+		// validate content type (can be faked by client)
+		if !contains(fh.Header["Content-Type"], "text/csv") {
+			success = false
+			msg = "Invalid CSV file."
+		}
+
+		// calculate hash of file to prevent duplicates
+		h := md5.New()
+		if _, err = io.Copy(h, file); err != nil {
+			log.Printf("Error getting hash of file")
+			http.Error(w, "Unable to get hash of file", http.StatusInternalServerError)
+			return
+		}
+		hash := h.Sum(nil)
+		file.Seek(0, 0) // reset file read pointer
+
+		var d string
+		if success {
+			t := time.Now()
+			d = fmt.Sprintf("%d-%02d-%02dT%02d:%02d:%02d-00:00",
+				t.Year(), t.Month(), t.Day(),
+				t.Hour(), t.Minute(), t.Second())
+		}
+
+		resp.Files = append(resp.Files, File{
+			Hash:    string(hash),
+			Name:    fh.Filename,
+			Date:    d,
+			Message: msg,
+			Success: success,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(resp)
+}
+
+/*
+func (env *Env) postUpload(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+
+
+	// parse the file into Trade records
+	var ts []parsers.Trade
+	switch src {
+	case "Coinbase":
+		ts, err = parse(&parsers.Coinbase{}, csv.NewReader(file))
+	case "Kucoin":
+		ts, err = parse(&parsers.Kucoin{}, csv.NewReader(file))
+	case "Cryptotax":
+		ts, err = parse(&parsers.Custom{}, csv.NewReader(file))
+	default:
+		http.Error(w, "Invalid exchange:\n"+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Unable to parse CSV file: %v\n", err), http.StatusBadRequest)
+		return
+	}
+
+	if len(ts) == 0 {
+		http.Error(w, "No trades to process", http.StatusOK)
+		return
+	}
+
+	// transaction for db inserts
+	tx := env.db.BeginTransaction()
+
+	if tx.Error != nil {
+		http.Error(w, "Failed to begin transaction", http.StatusInternalServerError)
+		return
+	}
+
+	// store the File
+	fs := &models.File{
+		Name:     template.HTMLEscapeString(handler.Filename),
+		Source:   src,
+		Hash:     hash,
+		ReportID: s.ReportID,
+	}
+	fid, err := tx.SaveFile(fs)
+	if err != nil {
+		tx.Rollback()
+		http.Error(w, "Failed to store file hash", http.StatusInternalServerError)
+		return
+	}
+
+	// store the Trades
+	for _, t := range ts {
+		trade := &models.Trade{
+			Date:         t.Date,
+			Asset:        t.Asset,
+			Action:       t.Action,
+			Quantity:     t.Quantity,
+			BaseCurrency: t.BaseCurrency,
+			BasePrice:    t.BasePrice,
+			BaseFee:      t.BaseFee,
+			FileID:       fid,
+			ReportID:     s.ReportID,
+		}
+		_, err := tx.SaveTrade(trade)
+		if err != nil {
+			tx.Rollback()
+			http.Error(w, "Unable to save trades", http.StatusInternalServerError)
+			return
+		}
+	}
+	tx.Commit()
+
+	http.Redirect(w, r, "/upload", http.StatusSeeOther)
+}
+*/

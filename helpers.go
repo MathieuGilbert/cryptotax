@@ -89,8 +89,8 @@ func (env *Env) setSessionCookie(w http.ResponseWriter, u *models.User) (*models
 	return s, nil
 }
 
-// getSession reads sessionID from cookie and return that session from the database
-func (env *Env) getSession(r *http.Request) (*models.Session, error) {
+// session reads sessionID from cookie and return that session from the database
+func (env *Env) session(r *http.Request) (*models.Session, error) {
 	cookies := r.Cookies()
 	cValue := ""
 	for _, c := range cookies {
@@ -101,7 +101,7 @@ func (env *Env) getSession(r *http.Request) (*models.Session, error) {
 	if cValue == "" {
 		return nil, nil
 	}
-	s, err := env.db.GetSession(cValue)
+	s, err := env.db.Session(cValue)
 	if err != nil {
 		return nil, nil
 	}
@@ -109,7 +109,7 @@ func (env *Env) getSession(r *http.Request) (*models.Session, error) {
 }
 
 func (env *Env) currentUser(r *http.Request) (*models.User, error) {
-	s, err := env.getSession(r)
+	s, err := env.session(r)
 	if err != nil {
 		return nil, err
 	}

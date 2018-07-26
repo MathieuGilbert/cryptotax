@@ -91,13 +91,18 @@ func main() {
 
 	// add router endpoints and handlers
 	router := httprouter.New()
-	router.GET("/", env.root)
-	router.GET("/register", env.registration)
-	router.POST("/register", env.register)
-	router.GET("/verify_email", env.verifyEmail)
-	router.GET("/login", env.loginPage)
-	router.POST("/login", env.login)
-	router.GET("/logout", env.logout)
+	router.GET("/", env.getRoot)
+
+	router.GET("/register", env.getRegister)
+	router.POST("/register", env.postRegister)
+	router.GET("/verify", env.getVerify)
+
+	router.GET("/login", env.getLogin)
+	router.POST("/login", env.postLogin)
+	router.GET("/logout", env.getLogout)
+
+	router.GET("/files", env.getFiles)
+	router.POST("/upload", env.postUploadAsync)
 
 	//router.POST("/newreport", env.newReport)
 	//
@@ -156,7 +161,7 @@ func initDB() (*models.DB, error) {
 
 /*
 func (env *Env) newReport(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	s, err := env.getSession(r)
+	s, err := env.session(r)
 	if err == nil && s != nil {
 		env.db.KillSession(s.SessionID)
 	}
@@ -195,7 +200,7 @@ func (env *Env) createReport(w http.ResponseWriter, r *http.Request, _ httproute
 	// retrieve and update report if there is an active session,
 	// otherwise create it
 	report := &models.Report{}
-	s, err := env.getSession(r)
+	s, err := env.session(r)
 	if err == nil && s != nil {
 		report, err = env.db.GetReport(s.ReportID)
 		if err != nil || report == nil {
@@ -225,158 +230,11 @@ func (env *Env) createReport(w http.ResponseWriter, r *http.Request, _ httproute
 	http.Redirect(w, r, "/upload", http.StatusSeeOther)
 }
 
-func (env *Env) manageFiles(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	// require an active session from this page on
-	s, err := env.getSession(r)
-	if err != nil {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
-	}
 
-	fs, err := env.db.GetReportFiles(s.ReportID)
-	if err != nil {
-		http.Error(w, "Unable to retrieve files", http.StatusInternalServerError)
-		return
-	}
-
-	t, err := template.ParseFiles(
-		"templates/layout/base.tmpl",
-		"templates/header.tmpl",
-		"templates/layout/style.tmpl",
-		"templates/layout/js.tmpl",
-		"templates/upload.tmpl",
-	)
-	if err != nil {
-		http.Error(w, "Template error", http.StatusInternalServerError)
-		return
-	}
-
-	type Presenter struct {
-		Exchanges []string
-		Files     []*models.File
-	}
-
-	pr := &Presenter{
-		Exchanges: SupportedExchanges,
-		Files:     fs,
-	}
-
-	t.Execute(w, pr)
-}
-
-func (env *Env) uploadFile(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	// requires active session
-	s, err := env.getSession(r)
-	if err != nil {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
-	}
-
-	// parse the form fields
-	r.ParseMultipartForm(32 << 20)
-	src := r.FormValue("exchange")
-	if !contains(SupportedExchanges, src) {
-		http.Error(w, "Invalid exchange", http.StatusBadRequest)
-		return
-	}
-
-	// get the file
-	file, handler, err := r.FormFile("uploadfile")
-	if err != nil {
-		http.Error(w, "Bad file", http.StatusBadRequest)
-		return
-	}
-	defer file.Close()
-
-	// validate content type (can be faked by client)
-	if !contains(handler.Header["Content-Type"], "text/csv") {
-		http.Error(w, "Must be a CSV file", http.StatusInternalServerError)
-		return
-	}
-
-	// calculate hash of file to prevent duplicates
-	h := md5.New()
-	if _, err = io.Copy(h, file); err != nil {
-		http.Error(w, "Unable to get hash of file", http.StatusInternalServerError)
-		return
-	}
-	hash := h.Sum(nil)
-	file.Seek(0, 0) // reset file read pointer
-
-	// parse the file into Trade records
-	var ts []parsers.Trade
-	switch src {
-	case "Coinbase":
-		ts, err = parse(&parsers.Coinbase{}, csv.NewReader(file))
-	case "Kucoin":
-		ts, err = parse(&parsers.Kucoin{}, csv.NewReader(file))
-	case "Cryptotax":
-		ts, err = parse(&parsers.Custom{}, csv.NewReader(file))
-	default:
-		http.Error(w, "Invalid exchange:\n"+err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Unable to parse CSV file: %v\n", err), http.StatusBadRequest)
-		return
-	}
-
-	if len(ts) == 0 {
-		http.Error(w, "No trades to process", http.StatusOK)
-		return
-	}
-
-	// transaction for db inserts
-	tx := env.db.BeginTransaction()
-
-	if tx.Error != nil {
-		http.Error(w, "Failed to begin transaction", http.StatusInternalServerError)
-		return
-	}
-
-	// store the File
-	fs := &models.File{
-		Name:     template.HTMLEscapeString(handler.Filename),
-		Source:   src,
-		Hash:     hash,
-		ReportID: s.ReportID,
-	}
-	fid, err := tx.SaveFile(fs)
-	if err != nil {
-		tx.Rollback()
-		http.Error(w, "Failed to store file hash", http.StatusInternalServerError)
-		return
-	}
-
-	// store the Trades
-	for _, t := range ts {
-		trade := &models.Trade{
-			Date:         t.Date,
-			Asset:        t.Asset,
-			Action:       t.Action,
-			Quantity:     t.Quantity,
-			BaseCurrency: t.BaseCurrency,
-			BasePrice:    t.BasePrice,
-			BaseFee:      t.BaseFee,
-			FileID:       fid,
-			ReportID:     s.ReportID,
-		}
-		_, err := tx.SaveTrade(trade)
-		if err != nil {
-			tx.Rollback()
-			http.Error(w, "Unable to save trades", http.StatusInternalServerError)
-			return
-		}
-	}
-	tx.Commit()
-
-	http.Redirect(w, r, "/upload", http.StatusSeeOther)
-}
 
 func (env *Env) deleteFile(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	// requires active session
-	s, err := env.getSession(r)
+	s, err := env.session(r)
 	if err != nil {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
@@ -411,7 +269,7 @@ func (env *Env) deleteFile(w http.ResponseWriter, r *http.Request, p httprouter.
 
 func (env *Env) viewReport(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	// requires active session
-	s, err := env.getSession(r)
+	s, err := env.session(r)
 	if err != nil {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
@@ -477,7 +335,7 @@ func (env *Env) viewReport(w http.ResponseWriter, r *http.Request, p httprouter.
 
 func (env *Env) manageTrades(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	// requires active session
-	s, err := env.getSession(r)
+	s, err := env.session(r)
 	if err != nil {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
@@ -507,7 +365,7 @@ func (env *Env) manageTrades(w http.ResponseWriter, r *http.Request, p httproute
 
 func (env *Env) addTrade(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	// requires active session
-	s, err := env.getSession(r)
+	s, err := env.session(r)
 	if err != nil {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
@@ -583,7 +441,7 @@ func (env *Env) addTrade(w http.ResponseWriter, r *http.Request, p httprouter.Pa
 
 func (env *Env) deleteTrade(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	// requires active session
-	s, err := env.getSession(r)
+	s, err := env.session(r)
 	if err != nil {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
@@ -617,7 +475,7 @@ func (env *Env) deleteTrade(w http.ResponseWriter, r *http.Request, p httprouter
 
 func (env *Env) downloadTrades(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	// requires active session
-	s, err := env.getSession(r)
+	s, err := env.session(r)
 	if err != nil {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return

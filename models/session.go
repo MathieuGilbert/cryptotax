@@ -37,8 +37,8 @@ func (db *DB) NewSession(u *User) (*Session, error) {
 	return dbc.Value.(*Session), nil
 }
 
-// GetSession retrieves a valid, non-expired session by SessionID
-func (db *DB) GetSession(sid string) (*Session, error) {
+// Session retrieves a valid, non-expired session by SessionID
+func (db *DB) Session(sid string) (*Session, error) {
 	s := &Session{}
 
 	if err := db.Where(&Session{SessionID: sid}).First(s).Error; err != nil {

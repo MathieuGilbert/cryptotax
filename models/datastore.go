@@ -22,7 +22,7 @@ type Datastore interface {
 	//BeginTransaction() *DB
 	NewSession(*User) (*Session, error)
 	UpgradeSession(*Session, *User) error
-	GetSession(string) (*Session, error)
+	Session(string) (*Session, error)
 	KillSession(*Session) error
 	GetUser(uint) (*User, error)
 	EmailExists(string) bool

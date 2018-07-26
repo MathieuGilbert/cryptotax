@@ -1,0 +1,55 @@
+{{define "content"}}
+<h2>Select exchange CSV files to upload</h2>
+<form id="file-upload" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <div class="file">
+        <label class="file-label">
+            <input class="file-input" type="file" multiple name="file">
+            <span class="file-cta">
+                <span class="file-icon">
+                    <i class="fas fa-upload"></i>
+                </span>
+                <span class="file-label">
+                    Choose file(s)…
+                </span>
+            </span>
+        </label>
+    </div>
+    <p class="help is-danger"></p>
+</form>
+<hr>
+<file-manager inline-template>
+    <table class="table" v-if="files.length">
+        <thead>
+            <tr>
+                <th>&nbsp;</th>
+                <th>Name</th>
+                <th>Uploaded</th>
+                <th>Exchange</th>
+                <th>&nbsp;</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr v-for="file in files">
+                <td>
+                    ${file.state}
+                    <p class="help is-danger" v-if="file.success !== true">${file.message}</p>
+                </td>
+                <td>${file.name}</td>
+                <td>${file.date}</td>
+                <td>${file.exchange}</td>
+                <td>
+                    <input type="hidden" value="${file.hash}">
+                    <input type="button" value="Remove" class="button is-small is-danger remove-file" v-if="file.state === 'uploadfailed'" v-on:click="removeFile">
+                    <input type="button" value="Delete" class="button is-small is-danger" v-if="file.state === 'uploaded'">
+                    <input type="button" value="Confirm" class="button is-small is-danger" :data-file-id="file.id" v-if="file.state === 'deleting'">
+                    <input type="button" value="Keep" class="button is-small is-primary" v-if="file.state === 'deleting'">
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</file-manager>
+{{end}}
+{{define "scripts"}}
+<script src="/web/components/file-manager.js"></script>
+{{end}}

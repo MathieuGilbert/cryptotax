@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html"
 	"io"
+	"log"
 	"regexp"
 	"strings"
 	"time"
@@ -27,21 +28,23 @@ Address: withdrawal/deposit address
 Notes: description
 */
 func (Coinbase) Parse(r *csv.Reader) (trades []Trade, parseError error) {
+	// regexp match fields
+	header := []string{"Timestamp", "Transaction Type", "Asset", "Quantity Transacted", ".+ Spot Price at Transaction", ".+ Amount Transacted \\(Inclusive of Coinbase Fees\\)", "Address", "Notes"}
+	onData := false
+
 	for i := 0; ; i++ {
 		row, err := r.Read()
 		if err == io.EOF {
+			log.Printf("eof. line: %v\n", i)
 			break
 		}
 
 		// skip header rows
-		if i < 3 {
+		if !onData {
+			if valuesContain(row, header) {
+				onData = true
+			}
 			continue
-		}
-
-		// ensure basic structure
-		if len(row) != 8 {
-			parseError = fmt.Errorf("Wrong number of columns: %v", len(row))
-			break
 		}
 
 		var date time.Time

@@ -29,6 +29,10 @@ Fee: fee amount
 Coin: fee currency
 */
 func (Kucoin) Parse(r *csv.Reader) (trades []Trade, parseError error) {
+	// regexp match fields
+	header := []string{"Time", "Coins", "Sell/Buy", "Filled Price", "Coin", "Amount", "Coin", "Volume", "Coin", "Fee", "Coin"}
+	onData := false
+
 	for i := 0; ; i++ {
 		row, err := r.Read()
 		if err == io.EOF {
@@ -36,14 +40,11 @@ func (Kucoin) Parse(r *csv.Reader) (trades []Trade, parseError error) {
 		}
 
 		// skip header rows
-		if i < 1 {
+		if !onData {
+			if valuesContain(row, header) {
+				onData = true
+			}
 			continue
-		}
-
-		// ensure basic structure
-		if len(row) != 11 {
-			parseError = fmt.Errorf("Wrong number of columns: %v", len(row))
-			break
 		}
 
 		var date time.Time

@@ -26,6 +26,8 @@ new Vue({
 });
 
 function getFileTrades(fid) {
+    app.trades.splice(0, app.trades.length);
+
     $.ajax({
         url: '/filetrades?id=' + fid,
         type: 'GET',

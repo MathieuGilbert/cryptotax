@@ -447,17 +447,13 @@ func (env *Env) postUploadAsync(w http.ResponseWriter, r *http.Request, _ httpro
 	// parse the file into Trade records
 	var ts []parsers.Trade
 	cr := csv.NewReader(strings.NewReader(string(ba)))
-	switch data.Exchange {
-	case "Coinbase":
-		ts, err = parse(&parsers.Coinbase{}, cr)
-	case "Kucoin":
-		ts, err = parse(&parsers.Kucoin{}, cr)
-	case "Cryptotax":
-		ts, err = parse(&parsers.Custom{}, cr)
-	default:
+	p, err := parsers.NewParser(data.Exchange)
+	if err != nil {
 		resp.Success = false
 		resp.Message = fmt.Sprintf("File does not match %v format.", data.Exchange)
 	}
+
+	ts, err = parse(p.(Parser), cr)
 	if err != nil {
 		resp.Success = false
 		resp.Message = "Unable to process exchange file."
@@ -468,39 +464,39 @@ func (env *Env) postUploadAsync(w http.ResponseWriter, r *http.Request, _ httpro
 		}
 	}
 
-	// transaction for db inserts
-	tx := env.db.BeginTransaction()
+	if resp.Success {
+		// transaction for db inserts
+		tx := env.db.BeginTransaction()
 
-	if tx.Error != nil {
-		log.Println("Error starting transaction")
-		http.Error(w, "Failed to begin transaction", http.StatusInternalServerError)
-		return
-	}
-
-	// store the File
-	fs := &models.File{
-		Name:   fileName,
-		Source: data.Exchange,
-		Bytes:  ba,
-		UserID: s.UserID,
-	}
-	fid, err := tx.SaveFile(fs)
-	if err != nil {
-		tx.Rollback()
-
-		if err, ok := err.(*pq.Error); ok && err.Code.Name() == "unique_violation" {
-			resp.Success = false
-			resp.Message = "File already exists."
-		} else {
-			log.Printf("Failed to save file: %v\n", fileName)
-			http.Error(w, "Failed to save file", http.StatusInternalServerError)
+		if tx.Error != nil {
+			log.Println("Error starting transaction")
+			http.Error(w, "Failed to begin transaction", http.StatusInternalServerError)
 			return
 		}
-	} else {
-		resp.FileID = fid
-	}
 
-	if resp.Success {
+		// store the File
+		fs := &models.File{
+			Name:   fileName,
+			Source: data.Exchange,
+			Bytes:  ba,
+			UserID: s.UserID,
+		}
+		fid, err := tx.SaveFile(fs)
+		if err != nil {
+			tx.Rollback()
+
+			if err, ok := err.(*pq.Error); ok && err.Code.Name() == "unique_violation" {
+				resp.Success = false
+				resp.Message = "File already exists."
+			} else {
+				log.Printf("Failed to save file: %v\n", fileName)
+				http.Error(w, "Failed to save file", http.StatusInternalServerError)
+				return
+			}
+		} else {
+			resp.FileID = fid
+		}
+
 		// store the Trades
 		for _, t := range ts {
 			trade := &models.Trade{

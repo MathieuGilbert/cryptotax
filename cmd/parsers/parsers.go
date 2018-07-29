@@ -3,6 +3,9 @@
 package parsers
 
 import (
+	"errors"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -20,7 +23,38 @@ type Trade struct {
 	FeeCurrency  string          // Trade fee currency
 }
 
+// NewParser returns the matching type of parser
+func NewParser(name string) (p interface{}, err error) {
+	switch name {
+	case "Coinbase":
+		p = &Coinbase{}
+	case "Kucoin":
+		p = &Kucoin{}
+	case "Cryptotax":
+		p = &Custom{}
+	default:
+		err = errors.New("Invalid exchange")
+	}
+	return p, err
+}
+
 // ValidAction is either a buy or sell
 func ValidAction(a string) bool {
-	return a == "buy" || a == "sell"
+	a = strings.ToUpper(a)
+	return a == "BUY" || a == "SELL"
+}
+
+// match: "Transacted CAD" with "Transacted"
+func valuesContain(full, test []string) bool {
+	if len(full) != len(test) {
+		return false
+	}
+	for i, s := range full {
+		m, _ := regexp.MatchString(test[i], s)
+
+		if !m {
+			return false
+		}
+	}
+	return true
 }

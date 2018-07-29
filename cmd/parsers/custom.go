@@ -48,6 +48,10 @@ func (Custom) Generate(ts []*models.Trade) ([]byte, error) {
 
 // Parse a custom trade file
 func (Custom) Parse(r *csv.Reader) (trades []Trade, parseError error) {
+	// regexp match fields
+	header := []string{"date", "action", "amount", "currency", "base_amount", "base_currency", "fee_amount", "fee_currency"}
+	onData := false
+
 	for i := 0; ; i++ {
 		row, err := r.Read()
 		if err == io.EOF {
@@ -55,14 +59,11 @@ func (Custom) Parse(r *csv.Reader) (trades []Trade, parseError error) {
 		}
 
 		// skip header rows
-		if i < 1 {
+		if !onData {
+			if valuesContain(row, header) {
+				onData = true
+			}
 			continue
-		}
-
-		// ensure basic structure
-		if len(row) != 7 {
-			parseError = fmt.Errorf("Wrong number of columns: %v", len(row))
-			break
 		}
 
 		var date time.Time
@@ -71,19 +72,19 @@ func (Custom) Parse(r *csv.Reader) (trades []Trade, parseError error) {
 			break
 		}
 
-		currency := strings.ToUpper(html.EscapeString(row[1]))
-
-		action := strings.ToUpper(row[2])
+		action := strings.ToUpper(row[1])
 		// skip if not a buy or sell
 		if !ValidAction(action) {
 			continue
 		}
 
 		var amount decimal.Decimal
-		if amount, err = decimal.NewFromString(row[3]); err != nil {
-			parseError = fmt.Errorf("decimal.NewFromString failed: %v", row[3])
+		if amount, err = decimal.NewFromString(row[2]); err != nil {
+			parseError = fmt.Errorf("decimal.NewFromString failed: %v", row[2])
 			break
 		}
+
+		currency := strings.ToUpper(html.EscapeString(row[3]))
 
 		var baseAmt decimal.Decimal
 		if baseAmt, err = decimal.NewFromString(row[4]); err != nil {
@@ -91,14 +92,15 @@ func (Custom) Parse(r *csv.Reader) (trades []Trade, parseError error) {
 			break
 		}
 
+		baseCur := strings.ToUpper(html.EscapeString(row[5]))
+
 		var feeAmt decimal.Decimal
-		if feeAmt, err = decimal.NewFromString(row[5]); err != nil {
-			parseError = fmt.Errorf("decimal.NewFromString failed: %v", row[5])
+		if feeAmt, err = decimal.NewFromString(row[6]); err != nil {
+			parseError = fmt.Errorf("decimal.NewFromString failed: %v", row[6])
 			break
 		}
 
-		baseCur := strings.ToUpper(html.EscapeString(row[6]))
-		feeCur := baseCur
+		feeCur := strings.ToUpper(html.EscapeString(row[7]))
 
 		trades = append(trades, Trade{
 			Date:         date,

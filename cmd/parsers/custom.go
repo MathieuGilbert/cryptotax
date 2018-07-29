@@ -19,18 +19,19 @@ type Custom struct{}
 // Generate a CSV file from the custom entered trades
 func (Custom) Generate(ts []*models.Trade) ([]byte, error) {
 	records := [][]string{
-		{"date", "asset", "action", "quantity", "base_price", "base_fee", "base_currency"},
+		{"date", "action", "amount", "currency", "base_amount", "base_currency", "fee_amount", "fee_currency"},
 	}
 
 	for _, t := range ts {
 		records = append(records, []string{
 			t.Date.Format("2006-01-02"),
-			t.Asset,
 			t.Action,
-			t.Quantity.String(),
-			t.BasePrice.String(),
-			t.BaseFee.String(),
+			t.Amount.String(),
+			t.Currency,
+			t.BaseAmount.String(),
 			t.BaseCurrency,
+			t.FeeAmount.String(),
+			t.FeeCurrency,
 		})
 	}
 
@@ -70,42 +71,44 @@ func (Custom) Parse(r *csv.Reader) (trades []Trade, parseError error) {
 			break
 		}
 
-		asset := strings.ToUpper(html.EscapeString(row[1]))
+		currency := strings.ToUpper(html.EscapeString(row[1]))
 
-		action := strings.ToLower(row[2])
+		action := strings.ToUpper(row[2])
 		// skip if not a buy or sell
 		if !ValidAction(action) {
 			continue
 		}
 
-		var quantity decimal.Decimal
-		if quantity, err = decimal.NewFromString(row[3]); err != nil {
+		var amount decimal.Decimal
+		if amount, err = decimal.NewFromString(row[3]); err != nil {
 			parseError = fmt.Errorf("decimal.NewFromString failed: %v", row[3])
 			break
 		}
 
-		var cost decimal.Decimal
-		if cost, err = decimal.NewFromString(row[4]); err != nil {
+		var baseAmt decimal.Decimal
+		if baseAmt, err = decimal.NewFromString(row[4]); err != nil {
 			parseError = fmt.Errorf("decimal.NewFromString failed: %v", row[4])
 			break
 		}
 
-		var fee decimal.Decimal
-		if fee, err = decimal.NewFromString(row[5]); err != nil {
+		var feeAmt decimal.Decimal
+		if feeAmt, err = decimal.NewFromString(row[5]); err != nil {
 			parseError = fmt.Errorf("decimal.NewFromString failed: %v", row[5])
 			break
 		}
 
-		base := strings.ToUpper(html.EscapeString(row[6]))
+		baseCur := strings.ToUpper(html.EscapeString(row[6]))
+		feeCur := baseCur
 
 		trades = append(trades, Trade{
 			Date:         date,
 			Action:       action,
-			Asset:        asset,
-			Quantity:     quantity,
-			BaseCurrency: base,
-			BasePrice:    cost,
-			BaseFee:      fee,
+			Amount:       amount,
+			Currency:     currency,
+			BaseAmount:   baseAmt,
+			BaseCurrency: baseCur,
+			FeeAmount:    feeAmt,
+			FeeCurrency:  feeCur,
 		})
 	}
 	return

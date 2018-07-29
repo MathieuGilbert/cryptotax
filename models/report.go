@@ -21,21 +21,6 @@ func (db *DB) CreateReport(r *Report) (uint, error) {
 	return dbc.Value.(*Report).ID, nil
 }
 
-// GetReport retrieves a Report by ID, including associated trades
-func (db *DB) GetReport(id uint) (*Report, error) {
-	r := &Report{}
-	if err := db.First(r, id).Error; err != nil {
-		return nil, err
-	}
-	ts, err := db.GetReportTrades(id)
-	if err != nil {
-		return nil, err
-	}
-	r.Trades = ts
-
-	return r, nil
-}
-
 // UpdateReportCurrency updates the report's currency
 func (db *DB) UpdateReportCurrency(r *Report) error {
 	q := "UPDATE reports SET currency = ? WHERE id = ?"

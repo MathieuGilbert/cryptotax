@@ -2,20 +2,25 @@ package main
 
 import (
 	"bytes"
-	"crypto/md5"
 	"crypto/tls"
+	"encoding/base64"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-mail/mail"
 	"github.com/goware/emailx"
 	"github.com/julienschmidt/httprouter"
+	"github.com/lib/pq"
+	"github.com/mathieugilbert/cryptotax/cmd/parsers"
+	"github.com/mathieugilbert/cryptotax/models"
 )
 
 func (env *Env) getRoot(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -40,7 +45,6 @@ func (env *Env) getRoot(w http.ResponseWriter, r *http.Request, _ httprouter.Par
 
 	pr := &Presenter{
 		LoggedIn: u != nil,
-		Data:     &Data{Name: "teddy"},
 	}
 
 	t.Execute(w, pr)
@@ -339,9 +343,16 @@ func (env *Env) getLogout(w http.ResponseWriter, r *http.Request, _ httprouter.P
 
 func (env *Env) getFiles(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	// require an active session and user
-	_, err := env.currentUser(r)
+	u, err := env.currentUser(r)
 	if err != nil {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	fs, err := env.db.GetFiles(u.ID)
+	if err != nil {
+		log.Printf("Error getting user files: %v\n", err)
+		http.Error(w, "Error retrieving files", http.StatusInternalServerError)
 		return
 	}
 
@@ -354,87 +365,170 @@ func (env *Env) getFiles(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 	}
 
 	pr := &Presenter{
-		Data: struct{ Exchanges []string }{SupportedExchanges},
-		//Files:     fs,
+		LoggedIn: true,
+		Data: struct {
+			Exchanges []string
+			Files     []*models.File
+		}{
+			Exchanges: SupportedExchanges,
+			Files:     fs,
+		},
 	}
 
 	t.Execute(w, pr)
 }
 
 func (env *Env) postUploadAsync(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	// requires active session
-	_, err := env.session(r)
-	if err != nil {
+	// requires active session and user
+	s, err := env.session(r)
+	if err != nil || s.UserID == 0 {
 		http.Error(w, "Expired session", http.StatusBadRequest)
 		return
 	}
 
-	// parse the form fields
-	r.ParseMultipartForm(32 << 20)
+	// posted JSON structure
+	type Data struct {
+		FileText  string
+		FileBytes string
+		Exchange  string
+		FileName  string
+	}
+	// read request body
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Printf("Error reading request body: %v\n", err)
+		http.Error(w, "Error reading request", http.StatusInternalServerError)
+		return
+	}
+
+	// unmarshal json body into Data
+	var data Data
+	if err := json.Unmarshal(body, &data); err != nil {
+		log.Printf("unmarshal error: %v\n", err)
+		http.Error(w, "Error during JSON unmarshal", http.StatusInternalServerError)
+		return
+	}
+
+	// base64 decode FileBytes
+	b, err := base64.StdEncoding.DecodeString(data.FileBytes)
+	if err != nil {
+		log.Printf("error decoding bytes: %v\n", err)
+		http.Error(w, "Error decoding file bytes", http.StatusInternalServerError)
+		return
+	}
+
+	// convert decoded bytes into a string
+	bs := string(b)
+	// split the string array: "[100,90,80]"
+	ss := strings.Split(bs[1:len(bs)-1], ",")
+	// convert to new byte slice
+	var ba []byte
+	for _, s := range ss {
+		i, _ := strconv.Atoi(s)
+		ba = append(ba, byte(i))
+	}
+
+	fileName := template.HTMLEscapeString(data.FileName)
 
 	// struct for response data
-	type File struct {
-		Hash    string `json:"hash"`
-		Name    string `json:"name"`
-		Date    string `json:"date"`
-		Message string `json:"message"`
-		Success bool   `json:"success"`
-	}
 	type Response struct {
-		Files []File `json:"files"`
+		FileID   uint   `json:"file_id"`
+		Name     string `json:"name"`
+		Date     string `json:"date"`
+		Exchange string `json:"exchange"`
+		Message  string `json:"message"`
+		Success  bool   `json:"success"`
 	}
-	resp := &Response{}
+	resp := &Response{
+		Name:    fileName,
+		Success: true,
+	}
 
-	m := r.MultipartForm
-	fhs := m.File["file"]
-	for _, fh := range fhs {
-		success := true
-		var msg string
-		//for each fileheader, get a handle to the actual file
-		file, err := fh.Open()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+	// parse the file into Trade records
+	var ts []parsers.Trade
+	cr := csv.NewReader(strings.NewReader(string(ba)))
+	switch data.Exchange {
+	case "Coinbase":
+		ts, err = parse(&parsers.Coinbase{}, cr)
+	case "Kucoin":
+		ts, err = parse(&parsers.Kucoin{}, cr)
+	case "Cryptotax":
+		ts, err = parse(&parsers.Custom{}, cr)
+	default:
+		resp.Success = false
+		resp.Message = fmt.Sprintf("File does not match %v format.", data.Exchange)
+	}
+	if err != nil {
+		resp.Success = false
+		resp.Message = "Unable to process exchange file."
+	} else {
+		if len(ts) == 0 {
+			resp.Success = false
+			resp.Message = "No trades found in file."
+		}
+	}
+
+	// transaction for db inserts
+	tx := env.db.BeginTransaction()
+
+	if tx.Error != nil {
+		log.Println("Error starting transaction")
+		http.Error(w, "Failed to begin transaction", http.StatusInternalServerError)
+		return
+	}
+
+	// store the File
+	fs := &models.File{
+		Name:   fileName,
+		Source: data.Exchange,
+		Bytes:  ba,
+		UserID: s.UserID,
+	}
+	fid, err := tx.SaveFile(fs)
+	if err != nil {
+		tx.Rollback()
+
+		if err, ok := err.(*pq.Error); ok && err.Code.Name() == "unique_violation" {
+			resp.Success = false
+			resp.Message = "File already exists."
+		} else {
+			log.Printf("Failed to save file: %v\n", fileName)
+			http.Error(w, "Failed to save file", http.StatusInternalServerError)
 			return
 		}
-		defer file.Close()
+	} else {
+		resp.FileID = fid
+	}
 
-		//src := r.FormValue("exchange")
-		//if !contains(SupportedExchanges, src) {
-		//	http.Error(w, "Invalid exchange", http.StatusBadRequest)
-		//	return
-		//}
-
-		// validate content type (can be faked by client)
-		if !contains(fh.Header["Content-Type"], "text/csv") {
-			success = false
-			msg = "Invalid CSV file."
+	if resp.Success {
+		// store the Trades
+		for _, t := range ts {
+			trade := &models.Trade{
+				Date:         t.Date,
+				Action:       t.Action,
+				Amount:       t.Amount,
+				Currency:     t.Currency,
+				BaseAmount:   t.BaseAmount,
+				BaseCurrency: t.BaseCurrency,
+				FeeAmount:    t.FeeAmount,
+				FeeCurrency:  t.FeeCurrency,
+				FileID:       fid,
+			}
+			_, err := tx.SaveTrade(trade)
+			if err != nil {
+				tx.Rollback()
+				log.Printf("Error saving trade: %v, error: %v\n", trade, err)
+				http.Error(w, "Unable to save trades", http.StatusInternalServerError)
+				return
+			}
 		}
+		tx.Commit()
 
-		// calculate hash of file to prevent duplicates
-		h := md5.New()
-		if _, err = io.Copy(h, file); err != nil {
-			log.Printf("Error getting hash of file")
-			http.Error(w, "Unable to get hash of file", http.StatusInternalServerError)
-			return
-		}
-		hash := h.Sum(nil)
-		file.Seek(0, 0) // reset file read pointer
-
-		var d string
-		if success {
-			t := time.Now()
-			d = fmt.Sprintf("%d-%02d-%02dT%02d:%02d:%02d-00:00",
-				t.Year(), t.Month(), t.Day(),
-				t.Hour(), t.Minute(), t.Second())
-		}
-
-		resp.Files = append(resp.Files, File{
-			Hash:    string(hash),
-			Name:    fh.Filename,
-			Date:    d,
-			Message: msg,
-			Success: success,
-		})
+		t := time.Now()
+		resp.Date = fmt.Sprintf("%d-%02d-%02dT%02d:%02d:%02d-00:00",
+			t.Year(), t.Month(), t.Day(),
+			t.Hour(), t.Minute(), t.Second())
+		resp.Exchange = data.Exchange
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -442,78 +536,58 @@ func (env *Env) postUploadAsync(w http.ResponseWriter, r *http.Request, _ httpro
 	json.NewEncoder(w).Encode(resp)
 }
 
-/*
-func (env *Env) postUpload(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-
-
-	// parse the file into Trade records
-	var ts []parsers.Trade
-	switch src {
-	case "Coinbase":
-		ts, err = parse(&parsers.Coinbase{}, csv.NewReader(file))
-	case "Kucoin":
-		ts, err = parse(&parsers.Kucoin{}, csv.NewReader(file))
-	case "Cryptotax":
-		ts, err = parse(&parsers.Custom{}, csv.NewReader(file))
-	default:
-		http.Error(w, "Invalid exchange:\n"+err.Error(), http.StatusBadRequest)
+func (env *Env) deleteFileAsync(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	// requires active session and user
+	s, err := env.session(r)
+	if err != nil || s.UserID == 0 {
+		http.Error(w, "Expired session", http.StatusBadRequest)
 		return
 	}
 
+	q := r.URL.Query()
+	id, err := strconv.ParseUint(q.Get("id"), 10, 64)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Unable to parse CSV file: %v\n", err), http.StatusBadRequest)
+		http.Error(w, "Invalid file id", http.StatusBadRequest)
 		return
 	}
 
-	if len(ts) == 0 {
-		http.Error(w, "No trades to process", http.StatusOK)
+	if err = env.db.DeleteFile(uint(id), s.UserID); err != nil {
+		http.Error(w, "Unable to delete file", http.StatusBadRequest)
 		return
 	}
 
-	// transaction for db inserts
-	tx := env.db.BeginTransaction()
-
-	if tx.Error != nil {
-		http.Error(w, "Failed to begin transaction", http.StatusInternalServerError)
-		return
-	}
-
-	// store the File
-	fs := &models.File{
-		Name:     template.HTMLEscapeString(handler.Filename),
-		Source:   src,
-		Hash:     hash,
-		ReportID: s.ReportID,
-	}
-	fid, err := tx.SaveFile(fs)
-	if err != nil {
-		tx.Rollback()
-		http.Error(w, "Failed to store file hash", http.StatusInternalServerError)
-		return
-	}
-
-	// store the Trades
-	for _, t := range ts {
-		trade := &models.Trade{
-			Date:         t.Date,
-			Asset:        t.Asset,
-			Action:       t.Action,
-			Quantity:     t.Quantity,
-			BaseCurrency: t.BaseCurrency,
-			BasePrice:    t.BasePrice,
-			BaseFee:      t.BaseFee,
-			FileID:       fid,
-			ReportID:     s.ReportID,
-		}
-		_, err := tx.SaveTrade(trade)
-		if err != nil {
-			tx.Rollback()
-			http.Error(w, "Unable to save trades", http.StatusInternalServerError)
-			return
-		}
-	}
-	tx.Commit()
-
-	http.Redirect(w, r, "/upload", http.StatusSeeOther)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode("")
 }
-*/
+
+func (env *Env) getFileTradesAsync(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	// requires active session and user
+	s, err := env.session(r)
+	if err != nil || s.UserID == 0 {
+		http.Error(w, "Expired session", http.StatusBadRequest)
+		return
+	}
+
+	q := r.URL.Query()
+	fid, err := strconv.ParseUint(q.Get("id"), 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid file id", http.StatusBadRequest)
+		return
+	}
+
+	ts, err := env.db.GetFileTrades(uint(fid), s.UserID)
+	if err != nil {
+		http.Error(w, "Error getting trades", http.StatusBadRequest)
+		return
+	}
+
+	type Response struct {
+		Trades []*models.Trade `json:"trades"`
+	}
+	resp := &Response{Trades: ts}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(resp)
+}

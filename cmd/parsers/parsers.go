@@ -12,11 +12,12 @@ import (
 type Trade struct {
 	Date         time.Time       // Date of trade
 	Action       string          // Buy/Sell
-	Asset        string          // Token traded
-	Quantity     decimal.Decimal // Number of tokens traded
+	Amount       decimal.Decimal // Number of tokens traded
+	Currency     string          // Token traded
+	BaseAmount   decimal.Decimal // Amount paid in base currency
 	BaseCurrency string          // Currency traded against token
-	BasePrice    decimal.Decimal // Amount paid in base currency
-	BaseFee      decimal.Decimal // Trade fee in base currency
+	FeeAmount    decimal.Decimal // Trade fee
+	FeeCurrency  string          // Trade fee currency
 }
 
 // ValidAction is either a buy or sell

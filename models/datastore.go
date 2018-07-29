@@ -19,7 +19,7 @@ type Datastore interface {
 	//SaveTrade(*Trade) (uint, error)
 	//GetTrade(uint) (*Trade, error)
 	//DeleteTrade(uint) error
-	//BeginTransaction() *DB
+	BeginTransaction() *DB
 	NewSession(*User) (*Session, error)
 	UpgradeSession(*Session, *User) error
 	Session(string) (*Session, error)
@@ -29,6 +29,9 @@ type Datastore interface {
 	RegisterUser(string, string) (*User, error)
 	Authenticate(string, string) (*User, error)
 	VerifyEmail(string) bool
+	GetFiles(uint) ([]*File, error)
+	DeleteFile(uint, uint) error
+	GetFileTrades(uint, uint) ([]*Trade, error)
 }
 
 // DB wraps gorm.DB

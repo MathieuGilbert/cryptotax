@@ -102,13 +102,13 @@ func start(db *gorm.DB) error {
 				if err := tx.CreateTable(&Trade{}).Error; err != nil {
 					return err
 				}
-				if err := tx.Model(Trade{}).AddForeignKey("asset_id", "assets(id)", "RESTRICT", "RESTRICT").Error; err != nil {
+				if err := tx.Model(&Trade{}).AddForeignKey("asset_id", "assets(id)", "RESTRICT", "RESTRICT").Error; err != nil {
 					return err
 				}
-				if err := tx.Model(Trade{}).AddForeignKey("file_id", "files(id)", "RESTRICT", "RESTRICT").Error; err != nil {
+				if err := tx.Model(&Trade{}).AddForeignKey("file_id", "files(id)", "RESTRICT", "RESTRICT").Error; err != nil {
 					return err
 				}
-				if err := tx.Model(Trade{}).AddForeignKey("report_id", "reports(id)", "RESTRICT", "RESTRICT").Error; err != nil {
+				if err := tx.Model(&Trade{}).AddForeignKey("report_id", "reports(id)", "RESTRICT", "RESTRICT").Error; err != nil {
 					return err
 				}
 				return nil
@@ -177,10 +177,10 @@ func start(db *gorm.DB) error {
 			ID: "20180703122730",
 			Migrate: func(tx *gorm.DB) error {
 				type File struct{}
-				return db.Model(&File{}).AddUniqueIndex("idx_file_hash", "hash").Error
+				return tx.Model(&File{}).AddUniqueIndex("idx_file_hash", "hash").Error
 			},
 			Rollback: func(tx *gorm.DB) error {
-				return db.RemoveIndex("idx_file_hash").Error
+				return tx.RemoveIndex("idx_file_hash").Error
 			},
 		},
 		// Create sessions table
@@ -243,17 +243,17 @@ func start(db *gorm.DB) error {
 			ID: "20180704155820",
 			Migrate: func(tx *gorm.DB) error {
 				type File struct{}
-				if err := db.RemoveIndex("idx_file_hash").Error; err != nil {
+				if err := tx.RemoveIndex("idx_file_hash").Error; err != nil {
 					return err
 				}
-				return db.Model(&File{}).AddUniqueIndex("idx_file_hash_report_id", "hash", "report_id").Error
+				return tx.Model(&File{}).AddUniqueIndex("idx_file_hash_report_id", "hash", "report_id").Error
 			},
 			Rollback: func(tx *gorm.DB) error {
 				type File struct{}
-				if err := db.RemoveIndex("idx_file_hash_report_id").Error; err != nil {
+				if err := tx.RemoveIndex("idx_file_hash_report_id").Error; err != nil {
 					return err
 				}
-				return db.Model(&File{}).AddUniqueIndex("idx_file_hash", "hash").Error
+				return tx.Model(&File{}).AddUniqueIndex("idx_file_hash", "hash").Error
 			},
 		},
 		// Cascade delete file trades
@@ -342,7 +342,7 @@ func start(db *gorm.DB) error {
 					return err
 				}
 
-				if err := tx.Model(Session{}).AddForeignKey("report_id", "reports(id)", "RESTRICT", "RESTRICT").Error; err != nil {
+				if err := tx.Model(&Session{}).AddForeignKey("report_id", "reports(id)", "RESTRICT", "RESTRICT").Error; err != nil {
 					return err
 				}
 
@@ -413,6 +413,159 @@ func start(db *gorm.DB) error {
 					return err
 				}
 				if err := tx.Model(&User{}).DropColumn("confirmed").Error; err != nil {
+					return err
+				}
+				return nil
+			},
+		},
+		// store file bytes instead of just the hash
+		// file associated to a user, not report
+		{
+			ID: "20180727141736",
+			Migrate: func(tx *gorm.DB) error {
+				type File struct {
+					Bytes  []byte `gorm:"type:bytea;not null"`
+					UserID uint   `gorm:"not null"`
+				}
+				if err := tx.AutoMigrate(&File{}).Error; err != nil {
+					return err
+				}
+				if err := tx.Model(&File{}).AddForeignKey("user_id", "users(id)", "RESTRICT", "RESTRICT").Error; err != nil {
+					return err
+				}
+				if err := tx.Model(&File{}).DropColumn("hash").Error; err != nil {
+					return err
+				}
+				if err := tx.Model(&File{}).RemoveForeignKey("report_id", "reports(id)").Error; err != nil {
+					return err
+				}
+				if err := tx.Model(&File{}).DropColumn("report_id").Error; err != nil {
+					return err
+				}
+				return nil
+			},
+			Rollback: func(tx *gorm.DB) error {
+				type File struct {
+					Hash     []byte `gorm:"type:bytea;not null"`
+					ReportID uint   `gorm:"not null"`
+				}
+				if err := tx.AutoMigrate(&File{}).Error; err != nil {
+					return err
+				}
+				if err := tx.Model(&File{}).AddForeignKey("report_id", "reports(id)", "RESTRICT", "RESTRICT").Error; err != nil {
+					return err
+				}
+				if err := tx.Model(&File{}).DropColumn("bytes").Error; err != nil {
+					return err
+				}
+				if err := tx.Model(&File{}).RemoveForeignKey("user_id", "users(id)").Error; err != nil {
+					return err
+				}
+				if err := tx.Model(&File{}).DropColumn("user_id").Error; err != nil {
+					return err
+				}
+				if err := tx.Model(&File{}).AddUniqueIndex("idx_file_hash", "hash").Error; err != nil {
+					return err
+				}
+				return nil
+			},
+		},
+		// drop reportID from trades
+		{
+			ID: "20180727165446",
+			Migrate: func(tx *gorm.DB) error {
+				type Trade struct{}
+				if err := tx.Model(&Trade{}).RemoveForeignKey("report_id", "reports(id)").Error; err != nil {
+					return err
+				}
+				if err := tx.Model(&Trade{}).DropColumn("report_id").Error; err != nil {
+					return err
+				}
+				return nil
+			},
+			Rollback: func(tx *gorm.DB) error {
+				type Trade struct {
+					ReportID uint `gorm:"not null"`
+				}
+				if err := tx.AutoMigrate(&Trade{}).Error; err != nil {
+					return err
+				}
+				if err := tx.Model(&Trade{}).AddForeignKey("report_id", "reports(id)", "RESTRICT", "RESTRICT").Error; err != nil {
+					return err
+				}
+				return nil
+			},
+		},
+		// unique index on files bytes
+		{
+			ID: "20180727171609",
+			Migrate: func(tx *gorm.DB) error {
+				type File struct{}
+				if err := tx.Model(&File{}).AddUniqueIndex("idx_file_bytes_user_id", "digest(bytes, 'sha1')", "user_id").Error; err != nil {
+					return err
+				}
+				return nil
+			},
+			Rollback: func(tx *gorm.DB) error {
+				type File struct{}
+				if err := tx.Model(&File{}).RemoveIndex("idx_file_bytes_user_id").Error; err != nil {
+					return err
+				}
+				return nil
+			},
+		},
+		// rename trade fields: asset -> currency, quantity -> amount, base_price -> base_amount, base_fee -> fee_amount
+		// add fee_currency
+		{
+			ID: "20180728132644",
+			Migrate: func(tx *gorm.DB) error {
+				type Trade struct {
+					Currency    string          `gorm:"not null"`
+					Amount      decimal.Decimal `gorm:"type:decimal;not null"`
+					BaseAmount  decimal.Decimal `gorm:"type:decimal;not null"`
+					FeeAmount   decimal.Decimal `gorm:"type:decimal;not null"`
+					FeeCurrency string          `gorm:"not null"`
+				}
+				if err := tx.Model(&Trade{}).DropColumn("asset").Error; err != nil {
+					return err
+				}
+				if err := tx.Model(&Trade{}).DropColumn("quantity").Error; err != nil {
+					return err
+				}
+				if err := tx.Model(&Trade{}).DropColumn("base_price").Error; err != nil {
+					return err
+				}
+				if err := tx.Model(&Trade{}).DropColumn("base_fee").Error; err != nil {
+					return err
+				}
+				if err := tx.AutoMigrate(&Trade{}).Error; err != nil {
+					return err
+				}
+				return nil
+			},
+			Rollback: func(tx *gorm.DB) error {
+				type Trade struct {
+					Asset     string          `gorm:"not null"`
+					Quantity  decimal.Decimal `gorm:"type:decimal;not null"`
+					BasePrice decimal.Decimal `gorm:"type:decimal;not null"`
+					BaseFee   decimal.Decimal `gorm:"type:decimal;not null"`
+				}
+				if err := tx.Model(&Trade{}).DropColumn("currency").Error; err != nil {
+					return err
+				}
+				if err := tx.Model(&Trade{}).DropColumn("amount").Error; err != nil {
+					return err
+				}
+				if err := tx.Model(&Trade{}).DropColumn("base_amount").Error; err != nil {
+					return err
+				}
+				if err := tx.Model(&Trade{}).DropColumn("fee_amount").Error; err != nil {
+					return err
+				}
+				if err := tx.Model(&Trade{}).DropColumn("fee_currency").Error; err != nil {
+					return err
+				}
+				if err := tx.AutoMigrate(&Trade{}).Error; err != nil {
 					return err
 				}
 				return nil

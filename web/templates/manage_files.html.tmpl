@@ -17,39 +17,119 @@
     </div>
     <p class="help is-danger"></p>
 </form>
-<hr>
-<file-manager inline-template>
-    <table class="table" v-if="files.length">
-        <thead>
-            <tr>
-                <th>&nbsp;</th>
-                <th>Name</th>
-                <th>Uploaded</th>
-                <th>Exchange</th>
-                <th>&nbsp;</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr v-for="file in files">
-                <td>
-                    ${file.state}
-                    <p class="help is-danger" v-if="file.success !== true">${file.message}</p>
-                </td>
-                <td>${file.name}</td>
-                <td>${file.date}</td>
-                <td>${file.exchange}</td>
-                <td>
-                    <input type="hidden" value="${file.hash}">
-                    <input type="button" value="Remove" class="button is-small is-danger remove-file" v-if="file.state === 'uploadfailed'" v-on:click="removeFile">
-                    <input type="button" value="Delete" class="button is-small is-danger" v-if="file.state === 'uploaded'">
-                    <input type="button" value="Confirm" class="button is-small is-danger" :data-file-id="file.id" v-if="file.state === 'deleting'">
-                    <input type="button" value="Keep" class="button is-small is-primary" v-if="file.state === 'deleting'">
-                </td>
-            </tr>
-        </tbody>
-    </table>
+
+<file-manager inline-template id="fm">
+    <div>
+        <hr>
+        <table class="table files-table" v-if="files.length">
+            <thead>
+                <tr>
+                    <th>&nbsp;</th>
+                    <th>Name</th>
+                    <th>Uploaded</th>
+                    <th>Exchange</th>
+                    <th>&nbsp;</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="file in files" :key="file.id">
+                    <td>
+                        ${file.state}
+                        <p class="help is-danger" v-if="file.success !== true">${file.message}</p>
+                    </td>
+                    <td>${file.name}</td>
+                    <td>${file.date}</td>
+                    <td>
+                        <div class="field" v-if="file.state === 'added'">
+                            <div class="control">
+                                <div class="select is-small is-danger">
+                                    <select class="select-exchange" v-on:change="upload($event, file)">
+                                        <option>Select Exchange</option>
+                                        {{range $k, $v := .Data.Exchanges}}
+                                            <option value="{{$v}}">{{$v}}</option>
+                                        {{end}}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        ${file.exchange}
+                    </td>
+                    <td>
+                        <div v-if="file.state !== 'uploaded' && file.state !== 'deleting' && file.state !== 'deletefailed'">
+                            <input type="button" value="Remove" class="button is-small is-danger remove-file" v-on:click="remove($event, file)">
+                        </div>
+                        <div v-if="file.state === 'uploaded' || file.state === 'deletefailed'">
+                            <input type="button" value="Delete" class="button is-small is-danger delete-button" v-on:click="toggleDelete">
+                            <input type="button" value="Confirm" class="button is-small is-danger confirm-button hidden" v-on:click="deleteFile($event, file);">
+                            <input type="button" value="Keep" class="button is-small is-primary keep-button hidden" v-on:click="toggleDelete">
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
 </file-manager>
+
+<trade-viewer inline-template id="tv">
+    <div>
+        <hr>
+        <h2>View trades from:</h2>
+        <div class="field" v-if="uploadedFiles">
+            <div class="control">
+                <div class="select">
+                    <select class="select-file" v-on:change="getFileTrades">
+                        <option>Select File</option>
+                        <option v-for="file in uploadedFiles" v-bind:value="file.id">${file.name}</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <table class="table trades-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Action</th>
+                    <th>Amount</th>
+                    <th>Unit</th>
+                    <th>For</th>
+                    <th>Unit</th>
+                    <th>Fee</th>
+                    <th>Unit</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="trade in trades" :key="trade.id">
+                    <td>${trade.date}</td>
+                    <td>${trade.action}</td>
+                    <td>${trade.amount}</td>
+                    <td>${trade.currency}</td>
+                    <td>${trade.base_amount}</td>
+                    <td>${trade.base_currency}</td>
+                    <td>${trade.fee_amount}</td>
+                    <td>${trade.fee_currency}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</trade-viewer>
 {{end}}
+
 {{define "scripts"}}
 <script src="/web/components/file-manager.js"></script>
+<script src="/web/components/trade-viewer.js"></script>
+<script>
+    $(document).ready(function() {
+        // load existing files
+        {{range $k, $v := .Data.Files}}
+            var f = {
+                "id": {{$v.ID}},
+                "name": {{$v.Name}},
+                "date": {{$v.CreatedAt}},
+                "state": "uploaded",
+                "exchange": {{$v.Source}},
+            };
+            app.files.push(f);
+        {{end}}
+    });
+</script>
 {{end}}

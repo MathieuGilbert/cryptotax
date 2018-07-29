@@ -16,6 +16,9 @@ body {
   overflow: hidden;
   padding: 1rem !important; }
 
+.hidden {
+  display: none !important; }
+
 /*! bulma.io v0.7.1 | MIT License | github.com/jgthms/bulma */
 @keyframes spinAround {
   from {

@@ -103,6 +103,9 @@ func main() {
 
 	router.GET("/files", env.getFiles)
 	router.POST("/upload", env.postUploadAsync)
+	router.DELETE("/file", env.deleteFileAsync)
+
+	router.GET("/filetrades", env.getFileTradesAsync)
 
 	//router.POST("/newreport", env.newReport)
 	//
@@ -389,7 +392,7 @@ func (env *Env) addTrade(w http.ResponseWriter, r *http.Request, p httprouter.Pa
 		return
 	}
 
-	action := strings.ToLower(r.FormValue("action"))
+	action := strings.ToUpper(r.FormValue("action"))
 	if !(action == "buy" || action == "sell") {
 		http.Error(w, "Invalid action", http.StatusBadRequest)
 		return

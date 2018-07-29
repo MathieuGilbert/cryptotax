@@ -10,8 +10,8 @@ type File struct {
 	CreatedAt time.Time `gorm:"not null"`
 	Name      string    `gorm:"not null"`
 	Source    string    `gorm:"not null"`
-	Hash      []byte    `gorm:"type:bytea;not null"`
-	ReportID  uint      `gorm:"not null"`
+	Bytes     []byte    `gorm:"type:bytea;not null"`
+	UserID    uint      `gorm:"not null"`
 }
 
 // SaveFile stores the file metadata and returns its ID
@@ -23,12 +23,6 @@ func (db *DB) SaveFile(file *File) (uint, error) {
 	return dbc.Value.(*File).ID, nil
 }
 
-// GetReportFiles retrives all files for the report ID
-func (db *DB) GetReportFiles(rid uint) (files []*File, err error) {
-	err = db.Where(&File{ReportID: rid}).Find(&files).Error
-	return
-}
-
 // GetFile returns file by ID
 func (db *DB) GetFile(id uint) (*File, error) {
 	file := &File{ID: id}
@@ -36,7 +30,14 @@ func (db *DB) GetFile(id uint) (*File, error) {
 	return file, err
 }
 
+// GetFiles returns a user's files
+func (db *DB) GetFiles(uid uint) ([]*File, error) {
+	var fs []*File
+	err := db.Select("id, created_at, name, source").Where(&File{UserID: uid}).Find(&fs).Error
+	return fs, err
+}
+
 // DeleteFile and cascade delete associate trades
-func (db *DB) DeleteFile(id uint) error {
-	return db.Delete(&File{ID: id}).Error
+func (db *DB) DeleteFile(id uint, uid uint) error {
+	return db.Delete(&File{ID: id, UserID: uid}).Error
 }

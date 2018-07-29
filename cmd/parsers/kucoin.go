@@ -15,6 +15,19 @@ import (
 type Kucoin struct{}
 
 // Parse a Kucoin file
+/*
+Time: date
+Coins: trading pair
+Sell/Buy: action
+Filled Price: unit base price
+Coin: unit base currency
+Amount: amount
+Coin: currency
+Volume: base amount
+Coin: base currency
+Fee: fee amount
+Coin: fee currency
+*/
 func (Kucoin) Parse(r *csv.Reader) (trades []Trade, parseError error) {
 	for i := 0; ; i++ {
 		row, err := r.Read()
@@ -39,49 +52,42 @@ func (Kucoin) Parse(r *csv.Reader) (trades []Trade, parseError error) {
 			break
 		}
 
-		var quantity decimal.Decimal
-		if quantity, err = decimal.NewFromString(row[5]); err != nil {
-			parseError = fmt.Errorf("decimal.NewFromString failed: %v", row[5])
-			break
-		}
-
-		// in BTC
-		var cost decimal.Decimal
-		if cost, err = decimal.NewFromString(row[7]); err != nil {
-			parseError = fmt.Errorf("decimal.NewFromString failed: %v", row[7])
-			break
-		}
-
-		// convert fee to base currency
-		var unitPrice decimal.Decimal
-		if unitPrice, err = decimal.NewFromString(row[3]); err != nil {
-			parseError = fmt.Errorf("decimal.NewFromString failed: %v", row[3])
-			break
-		}
-		var fee decimal.Decimal
-		if fee, err = decimal.NewFromString(row[9]); err != nil {
-			parseError = fmt.Errorf("decimal.NewFromString failed: %v", row[9])
-			break
-		}
-		fee = fee.Mul(unitPrice)
-
-		action := strings.ToLower(row[2])
+		action := strings.ToUpper(row[2])
 		// skip if not a buy or sell
 		if !ValidAction(action) {
 			continue
 		}
 
-		asset := html.EscapeString(row[6])
-		base := html.EscapeString(row[4])
+		var amount decimal.Decimal
+		if amount, err = decimal.NewFromString(row[5]); err != nil {
+			parseError = fmt.Errorf("decimal.NewFromString failed: %v", row[5])
+			break
+		}
+		currency := strings.ToUpper(html.EscapeString(row[6]))
+
+		var baseAmt decimal.Decimal
+		if baseAmt, err = decimal.NewFromString(row[7]); err != nil {
+			parseError = fmt.Errorf("decimal.NewFromString failed: %v", row[7])
+			break
+		}
+		baseCur := strings.ToUpper(html.EscapeString(row[8]))
+
+		var feeAmt decimal.Decimal
+		if feeAmt, err = decimal.NewFromString(row[9]); err != nil {
+			parseError = fmt.Errorf("decimal.NewFromString failed: %v", row[9])
+			break
+		}
+		feeCur := strings.ToUpper(html.EscapeString(row[10]))
 
 		trades = append(trades, Trade{
 			Date:         date,
 			Action:       action,
-			Asset:        asset,
-			Quantity:     quantity,
-			BaseCurrency: base,
-			BasePrice:    cost,
-			BaseFee:      fee,
+			Amount:       amount,
+			Currency:     currency,
+			BaseAmount:   baseAmt,
+			BaseCurrency: baseCur,
+			FeeAmount:    feeAmt,
+			FeeCurrency:  feeCur,
 		})
 	}
 	return

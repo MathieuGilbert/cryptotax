@@ -1,6 +1,7 @@
 package models
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -8,17 +9,17 @@ import (
 
 // Trade model definition
 type Trade struct {
-	ID           uint            `gorm:"primary_key"`
-	CreatedAt    time.Time       `gorm:"not null"`
-	Date         time.Time       `gorm:"not null"`
-	Asset        string          `gorm:"not null"`
-	Action       string          `gorm:"not null"`
-	Quantity     decimal.Decimal `gorm:"type:decimal;not null"`
-	BaseCurrency string          `gorm:"not null"`
-	BasePrice    decimal.Decimal `gorm:"type:decimal;not null"`
-	BaseFee      decimal.Decimal `gorm:"type:decimal;not null"`
-	FileID       uint            ``
-	ReportID     uint            `gorm:"not null"`
+	ID           uint            `gorm:"primary_key" json:"id"`
+	CreatedAt    time.Time       `gorm:"not null" json:"created_at"`
+	Date         time.Time       `gorm:"not null" json:"date"`
+	Action       string          `gorm:"not null" json:"action"`
+	Amount       decimal.Decimal `gorm:"type:decimal;not null" json:"amount"`
+	Currency     string          `gorm:"not null" json:"currency"`
+	BaseAmount   decimal.Decimal `gorm:"type:decimal;not null" json:"base_amount"`
+	BaseCurrency string          `gorm:"not null" json:"base_currency"`
+	FeeAmount    decimal.Decimal `gorm:"type:decimal;not null" json:"fee_amount"`
+	FeeCurrency  string          `gorm:"not null" json:"fee_currency"`
+	FileID       uint            `json:"file_id"`
 }
 
 // SaveTrade stores the Trade and returns its ID
@@ -33,9 +34,14 @@ func (db *DB) SaveTrade(t *Trade) (uint, error) {
 		return c.Value.(*Trade).ID, nil
 	}
 
-	// manually insert null in nullable foreign key file_id
-	q := "INSERT into trades (created_at, date, asset, action, quantity, base_currency, base_price, base_fee, report_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id"
-	c := db.Raw(q, time.Now(), t.Date, t.Asset, t.Action, t.Quantity, t.BaseCurrency, t.BasePrice, t.BaseFee, t.ReportID)
+	// handle nullable foreign key file_id
+	var fid sql.NullInt64
+	if t.FileID != 0 {
+		fid = sql.NullInt64{Int64: int64(t.FileID)}
+	}
+
+	q := "INSERT into trades (created_at, date, action, currency, amount, base_currency, base_amount, fee_amount, fee_currency, file_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id"
+	c := db.Raw(q, time.Now(), t.Date, t.Action, t.Currency, t.Amount, t.BaseCurrency, t.BaseAmount, t.FeeAmount, t.FeeCurrency, fid)
 
 	if c.Error != nil {
 		return 0, c.Error
@@ -54,15 +60,14 @@ func (db *DB) GetTrade(id uint) (*Trade, error) {
 	return t, err
 }
 
-// DeleteTrade by ID
-func (db *DB) DeleteTrade(id uint) error {
-	return db.Delete(&Trade{ID: id}).Error
-}
-
-// GetReportTrades returns the trades for the report ID
-func (db *DB) GetReportTrades(rid uint) (trades []*Trade, err error) {
-	err = db.Where(&Trade{ReportID: rid}).Find(&trades).Error
-	return
+// GetFileTrades returns trades for the file id and user id
+func (db *DB) GetFileTrades(fid uint, uid uint) ([]*Trade, error) {
+	if f, err := db.GetFile(fid); err != nil || f.UserID != uid {
+		return nil, err
+	}
+	var ts []*Trade
+	err := db.Where(&Trade{FileID: fid}).Find(&ts).Error
+	return ts, err
 }
 
 // GetManualTrades returns the trades for the report ID with no associated File

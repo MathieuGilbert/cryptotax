@@ -16,6 +16,16 @@ import (
 type Coinbase struct{}
 
 // Parse a Coinbase file
+/*
+Timestamp: date
+Transaction Type: action
+Asset: currency
+Quantity Transacted: amount
+CAD Spot Price at Transaction: unit price
+CAD Amount Transacted (Inclusive of Coinbase Fees): baseAmt + feeAmt
+Address: withdrawal/deposit address
+Notes: description
+*/
 func (Coinbase) Parse(r *csv.Reader) (trades []Trade, parseError error) {
 	for i := 0; ; i++ {
 		row, err := r.Read()
@@ -40,14 +50,16 @@ func (Coinbase) Parse(r *csv.Reader) (trades []Trade, parseError error) {
 			break
 		}
 
-		var cost decimal.Decimal
-		if cost, err = decimal.NewFromString(row[5]); err != nil {
-			parseError = fmt.Errorf("decimal.NewFromString failed: %v", row[5])
-			break
+		action := strings.ToUpper(row[1])
+		// skip if not a buy or sell
+		if !ValidAction(action) {
+			continue
 		}
 
-		var quantity decimal.Decimal
-		if quantity, err = decimal.NewFromString(row[3]); err != nil {
+		currency := strings.ToUpper(html.EscapeString(row[2]))
+
+		var amount decimal.Decimal
+		if amount, err = decimal.NewFromString(row[3]); err != nil {
 			parseError = fmt.Errorf("decimal.NewFromString failed: %v", row[3])
 			break
 		}
@@ -57,16 +69,15 @@ func (Coinbase) Parse(r *csv.Reader) (trades []Trade, parseError error) {
 			parseError = fmt.Errorf("decimal.NewFromString failed: %v", row[4])
 			break
 		}
-		fee := cost.Sub(quantity.Mul(unitPrice))
-		cost = cost.Sub(fee)
 
-		action := strings.ToLower(row[1])
-		// skip if not a buy or sell
-		if !ValidAction(action) {
-			continue
+		var totalCost decimal.Decimal
+		if totalCost, err = decimal.NewFromString(row[5]); err != nil {
+			parseError = fmt.Errorf("decimal.NewFromString failed: %v", row[5])
+			break
 		}
 
-		asset := html.EscapeString(row[2])
+		baseAmt := amount.Mul(unitPrice)
+		feeAmt := totalCost.Sub(baseAmt)
 
 		// base currency is hidden in
 		re := regexp.MustCompile("for\\s.+\\s(\\w+)")
@@ -75,16 +86,17 @@ func (Coinbase) Parse(r *csv.Reader) (trades []Trade, parseError error) {
 			parseError = fmt.Errorf("Couldn't determine currency")
 			break
 		}
-		base := m[1]
+		baseCur := strings.ToUpper(m[1])
 
 		trades = append(trades, Trade{
 			Date:         date,
 			Action:       action,
-			Asset:        asset,
-			Quantity:     quantity,
-			BaseCurrency: base,
-			BasePrice:    cost,
-			BaseFee:      fee,
+			Amount:       amount,
+			Currency:     currency,
+			BaseAmount:   baseAmt,
+			BaseCurrency: baseCur,
+			FeeAmount:    feeAmt,
+			FeeCurrency:  baseCur,
 		})
 	}
 	return

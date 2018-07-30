@@ -14,9 +14,12 @@ func (f *Form) fail(field, message string) {
 	f.Success = false
 }
 
-func pageTemplate(t string) (*template.Template, error) {
-	ts := append(TemplateFiles, t)
-	return template.New(path.Base(ts[0])).Funcs(funcMaps()).ParseFiles(ts...)
+func pageTemplate(ts ...string) (*template.Template, error) {
+	f := TemplateFiles
+	for _, t := range ts {
+		f = append(f, t)
+	}
+	return template.New(path.Base(f[0])).Funcs(funcMaps()).ParseFiles(f...)
 }
 
 func funcMaps() map[string]interface{} {

@@ -1,0 +1,53 @@
+{{define "file_manager"}}
+<file-manager inline-template id="fm">
+    <div>
+        <hr>
+        <table class="table files-table" v-if="files.length">
+            <thead>
+                <tr>
+                    <th>&nbsp;</th>
+                    <th>Name</th>
+                    <th>Uploaded</th>
+                    <th>Exchange</th>
+                    <th>&nbsp;</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="file in files" :key="file.id">
+                    <td>
+                        ${file.state}
+                        <p class="help is-danger" v-if="file.success !== true">${file.message}</p>
+                    </td>
+                    <td>${file.name}</td>
+                    <td>${file.date}</td>
+                    <td>
+                        <div class="field" v-if="file.state === 'added'">
+                            <div class="control">
+                                <div class="select is-small is-danger">
+                                    <select class="select-exchange" v-on:change="upload($event, file)">
+                                        <option>Select Exchange</option>
+                                        {{range $k, $v := .Data.Exchanges}}
+                                            <option value="{{$v}}">{{$v}}</option>
+                                        {{end}}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        ${file.exchange}
+                    </td>
+                    <td>
+                        <div v-if="file.state !== 'uploaded' && file.state !== 'deleting' && file.state !== 'deletefailed'">
+                            <input type="button" value="Remove" class="button is-small is-danger remove-file" v-on:click="remove($event, file)">
+                        </div>
+                        <div v-if="file.state === 'uploaded' || file.state === 'deletefailed'">
+                            <input type="button" value="Delete" class="button is-small is-danger delete-button" v-on:click="toggleDelete">
+                            <input type="button" value="Confirm" class="button is-small is-danger confirm-button hidden" v-on:click="deleteFile($event, file);">
+                            <input type="button" value="Keep" class="button is-small is-primary keep-button hidden" v-on:click="toggleDelete">
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</file-manager>
+{{end}}

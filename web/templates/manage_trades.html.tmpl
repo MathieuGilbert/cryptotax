@@ -1,0 +1,29 @@
+{{define "content"}}
+<h2>Enter manual trades</h2>
+
+{{block "trade_manager" .}}{{end}}
+
+{{end}}
+
+{{define "scripts"}}
+<script src="/web/components/trade-manager.js"></script>
+<script>
+    $(document).ready(function() {
+        // load existing trades
+        {{range $k, $v := .Data.Trades}}
+            var t = {
+                "id": {{$v.ID}},
+                "date": {{$v.Date}},
+                "action": {{$v.Action}},
+                "amount": {{$v.Amount}},
+                "currency": {{$v.Currency}},
+                "baseAmount": {{$v.BaseAmount}},
+                "baseCurrency": {{$v.BaseCurrency}},
+                "feeAmount": {{$v.FeeAmount}},
+                "feeCurrency": {{$v.FeeCurrency}}
+            };
+            app.trades.push(t);
+        {{end}}
+    });
+</script>
+{{end}}

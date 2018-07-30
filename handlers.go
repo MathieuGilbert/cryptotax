@@ -7,6 +7,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"html"
 	"html/template"
 	"io/ioutil"
 	"log"
@@ -21,6 +22,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/mathieugilbert/cryptotax/cmd/parsers"
 	"github.com/mathieugilbert/cryptotax/models"
+	"github.com/shopspring/decimal"
 )
 
 func (env *Env) getRoot(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -342,14 +344,14 @@ func (env *Env) getLogout(w http.ResponseWriter, r *http.Request, _ httprouter.P
 }
 
 func (env *Env) getFiles(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	// require an active session and user
-	u, err := env.currentUser(r)
-	if err != nil {
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
+	// requires active session and user
+	s, err := env.session(r)
+	if err != nil || s.UserID == 0 {
+		http.Error(w, "Expired session", http.StatusBadRequest)
 		return
 	}
 
-	fs, err := env.db.GetFiles(u.ID)
+	fs, err := env.db.GetFiles(s.UserID)
 	if err != nil {
 		log.Printf("Error getting user files: %v\n", err)
 		http.Error(w, "Error retrieving files", http.StatusInternalServerError)
@@ -357,7 +359,11 @@ func (env *Env) getFiles(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 	}
 
 	// build page
-	t, err := pageTemplate("web/templates/manage_files.html.tmpl")
+	t, err := pageTemplate(
+		"web/templates/components/file_manager.html.tmpl",
+		"web/templates/components/trade_viewer.html.tmpl",
+		"web/templates/manage_files.html.tmpl",
+	)
 	if err != nil {
 		log.Printf("%+v", err)
 		http.Error(w, "Template error", http.StatusInternalServerError)
@@ -365,7 +371,8 @@ func (env *Env) getFiles(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 	}
 
 	pr := &Presenter{
-		LoggedIn: true,
+		LoggedIn:  true,
+		CSRFToken: s.CSRFToken,
 		Data: struct {
 			Exchanges []string
 			Files     []*models.File
@@ -374,7 +381,6 @@ func (env *Env) getFiles(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 			Files:     fs,
 		},
 	}
-
 	t.Execute(w, pr)
 }
 
@@ -392,6 +398,7 @@ func (env *Env) postUploadAsync(w http.ResponseWriter, r *http.Request, _ httpro
 		FileBytes string
 		Exchange  string
 		FileName  string
+		CSRFToken string
 	}
 	// read request body
 	body, err := ioutil.ReadAll(r.Body)
@@ -406,6 +413,12 @@ func (env *Env) postUploadAsync(w http.ResponseWriter, r *http.Request, _ httpro
 	if err := json.Unmarshal(body, &data); err != nil {
 		log.Printf("unmarshal error: %v\n", err)
 		http.Error(w, "Error during JSON unmarshal", http.StatusInternalServerError)
+		return
+	}
+
+	// verify CSRF token
+	if data.CSRFToken != s.CSRFToken {
+		http.Error(w, "Invalid CSRF token", http.StatusBadRequest)
 		return
 	}
 
@@ -432,7 +445,7 @@ func (env *Env) postUploadAsync(w http.ResponseWriter, r *http.Request, _ httpro
 
 	// struct for response data
 	type Response struct {
-		FileID   uint   `json:"file_id"`
+		FileID   uint   `json:"fileId"`
 		Name     string `json:"name"`
 		Date     string `json:"date"`
 		Exchange string `json:"exchange"`
@@ -509,6 +522,7 @@ func (env *Env) postUploadAsync(w http.ResponseWriter, r *http.Request, _ httpro
 				FeeAmount:    t.FeeAmount,
 				FeeCurrency:  t.FeeCurrency,
 				FileID:       fid,
+				UserID:       s.UserID,
 			}
 			_, err := tx.SaveTrade(trade)
 			if err != nil {
@@ -544,6 +558,12 @@ func (env *Env) deleteFileAsync(w http.ResponseWriter, r *http.Request, _ httpro
 	id, err := strconv.ParseUint(q.Get("id"), 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid file id", http.StatusBadRequest)
+		return
+	}
+
+	// verify CSRF token
+	if q.Get("csrf_token") != s.CSRFToken {
+		http.Error(w, "Invalid CSRF token", http.StatusBadRequest)
 		return
 	}
 
@@ -585,5 +605,155 @@ func (env *Env) getFileTradesAsync(w http.ResponseWriter, r *http.Request, _ htt
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(resp)
+}
+
+func (env *Env) getTrades(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	// requires active session and user
+	s, err := env.session(r)
+	if err != nil || s.UserID == 0 {
+		http.Error(w, "Expired session", http.StatusBadRequest)
+		return
+	}
+
+	ts, err := env.db.GetManualTrades(s.UserID)
+	if err != nil {
+		log.Printf("Error getting user trades: %v\n", err)
+		http.Error(w, "Error retrieving files", http.StatusInternalServerError)
+		return
+	}
+
+	// build page
+	t, err := pageTemplate(
+		"web/templates/components/trade_manager.html.tmpl",
+		"web/templates/manage_trades.html.tmpl",
+	)
+	if err != nil {
+		log.Printf("%+v", err)
+		http.Error(w, "Template error", http.StatusInternalServerError)
+		return
+	}
+
+	pr := &Presenter{
+		LoggedIn:  true,
+		CSRFToken: s.CSRFToken,
+		Data: struct {
+			Trades []*models.Trade
+		}{
+			Trades: ts,
+		},
+	}
+
+	t.Execute(w, pr)
+}
+
+func (env *Env) postTradeAsync(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	// requires active session and user
+	s, err := env.session(r)
+	if err != nil || s.UserID == 0 {
+		http.Error(w, "Expired session", http.StatusBadRequest)
+		return
+	}
+
+	// posted JSON structure
+	type Trade struct {
+		Date         string
+		Action       string
+		Amount       string
+		Currency     string
+		BaseAmount   string
+		BaseCurrency string
+		FeeAmount    string
+		FeeCurrency  string
+	}
+	type Data struct {
+		Trade     *Trade
+		CSRFToken string
+	}
+	// read request body
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Printf("Error reading request body: %v\n", err)
+		http.Error(w, "Error reading request", http.StatusInternalServerError)
+		return
+	}
+
+	// unmarshal json body into Data
+	var data Data
+	if err := json.Unmarshal(body, &data); err != nil {
+		log.Printf("unmarshal error: %v\n", err)
+		http.Error(w, "Error during JSON unmarshal", http.StatusInternalServerError)
+		return
+	}
+
+	// verify CSRF token
+	if data.CSRFToken != s.CSRFToken {
+		http.Error(w, "Invalid CSRF token", http.StatusBadRequest)
+		return
+	}
+
+	// validate trade
+	var date time.Time
+	if date, err = time.Parse("2006-01-02", data.Trade.Date); err != nil {
+		http.Error(w, "Invalid date.", http.StatusBadRequest)
+		return
+	}
+
+	action := strings.ToUpper(data.Trade.Action)
+	// skip if not a buy or sell
+	if action != "BUY" && action != "SELL" {
+		http.Error(w, "Must be BUY or SELL.", http.StatusBadRequest)
+		return
+	}
+
+	var amount decimal.Decimal
+	if amount, err = decimal.NewFromString(data.Trade.Amount); err != nil {
+		http.Error(w, "Invalid amount.", http.StatusBadRequest)
+		return
+	}
+
+	currency := strings.ToUpper(html.EscapeString(data.Trade.Currency))
+
+	var baseAmount decimal.Decimal
+	if baseAmount, err = decimal.NewFromString(data.Trade.BaseAmount); err != nil {
+		http.Error(w, "Invalid base amount.", http.StatusBadRequest)
+		return
+	}
+
+	baseCurrency := strings.ToUpper(html.EscapeString(data.Trade.BaseCurrency))
+
+	var feeAmount decimal.Decimal
+	if feeAmount, err = decimal.NewFromString(data.Trade.FeeAmount); err != nil {
+		http.Error(w, "Invalid base amount.", http.StatusBadRequest)
+		return
+	}
+
+	feeCurrency := strings.ToUpper(html.EscapeString(data.Trade.FeeCurrency))
+
+	trd := &models.Trade{
+		Date:         date,
+		Action:       action,
+		Amount:       amount,
+		Currency:     currency,
+		BaseAmount:   baseAmount,
+		BaseCurrency: baseCurrency,
+		FeeAmount:    feeAmount,
+		FeeCurrency:  feeCurrency,
+		UserID:       s.UserID,
+	}
+	t, err := env.db.SaveTrade(trd)
+	if err != nil {
+		log.Printf("Error saving trade: %v\n%v\n", trd, err)
+		http.Error(w, "Error saving trade.", http.StatusInternalServerError)
+		return
+	}
+
+	type Response struct {
+		Trade *models.Trade `json:"trade"`
+	}
+	resp := &Response{Trade: t}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(resp)
 }

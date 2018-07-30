@@ -1,0 +1,44 @@
+{{define "trade_viewer"}}
+<trade-viewer inline-template id="tv">
+    <div v-if="uploadedFiles.length">
+        <hr>
+        <h2>View trades from:</h2>
+        <div class="field">
+            <div class="control">
+                <div class="select">
+                    <select class="select-file" v-on:change="getFileTrades">
+                        <option>Select File</option>
+                        <option v-for="file in uploadedFiles" v-bind:value="file.id">${file.name}</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <table class="table trades-table" v-if="trades.length">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Action</th>
+                    <th>Amount</th>
+                    <th>&nbsp;</th>
+                    <th>For</th>
+                    <th>&nbsp;</th>
+                    <th>Fee</th>
+                    <th>&nbsp;</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="trade in trades" :key="trade.id">
+                    <td>${trade.date}</td>
+                    <td>${trade.action}</td>
+                    <td>${trade.amount}</td>
+                    <td>${trade.currency}</td>
+                    <td>${trade.baseAmount}</td>
+                    <td>${trade.baseCurrency}</td>
+                    <td>${trade.feeAmount}</td>
+                    <td>${trade.feeCurrency}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</trade-viewer>
+{{end}}

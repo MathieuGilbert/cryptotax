@@ -1,0 +1,59 @@
+{{define "trade_manager"}}
+<trade-manager inline-template id="tm">
+    <div>
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Action</th>
+                    <th>Amount</th>
+                    <th>&nbsp;</th>
+                    <th>For</th>
+                    <th>&nbsp;</th>
+                    <th>Fee</th>
+                    <th>&nbsp;</th>
+                    <th>&nbsp;</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <input type="date" name="date" v-model="newTrade.date">
+                    </td>
+                    <td>
+                        <input id="buy" type="radio" name="action" value="BUY" v-model="newTrade.action" checked>
+                        <label for="buy">BUY</label>
+                        <input id="sell" type="radio" name="action" value="SELL" v-model="newTrade.action">
+                        <label for="sell">SELL</label>
+                    </td>
+                    <td><input type="number" name="amount" v-model="newTrade.amount"></td>
+                    <td><input type="text" name="currency" v-model="newTrade.currency"></td>
+                    <td><input type="number" name="base_amount" v-model="newTrade.baseAmount"></td>
+                    <td><input type="text" name="base_currency"v-model="newTrade.baseCurrency"></td>
+                    <td><input type="number" name="fee_amount" v-model="newTrade.feeAmount"></td>
+                    <td><input type="text" name="fee_currency" v-model="newTrade.feeCurrency"></td>
+                    <td>
+                        <input type="button" value="Add" class="button is-small is-primary" @click="addTrade">
+                        <input type="button" value="Clear" class="button is-small is-danger" @click="clearRow">
+                        <p class="help is-danger">${newTrade.error}</p>
+                    </td>
+                </tr>
+                <tr v-for="trade in trades" :key="trade.id">
+                    <td>${trade.date}</td>
+                    <td>${trade.action}</td>
+                    <td>${trade.amount}</td>
+                    <td>${trade.currency}</td>
+                    <td>${trade.baseAmount}</td>
+                    <td>${trade.baseCurrency}</td>
+                    <td>${trade.feeAmount}</td>
+                    <td>${trade.feeCurrency}</td>
+                    <td>&nbsp;</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</trade-manager>
+
+{{end}}

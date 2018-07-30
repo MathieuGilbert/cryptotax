@@ -104,8 +104,10 @@ func main() {
 	router.GET("/files", env.getFiles)
 	router.POST("/upload", env.postUploadAsync)
 	router.DELETE("/file", env.deleteFileAsync)
-
 	router.GET("/filetrades", env.getFileTradesAsync)
+
+	router.GET("/trades", env.getTrades)
+	router.POST("/trade", env.postTradeAsync)
 
 	//router.POST("/newreport", env.newReport)
 	//

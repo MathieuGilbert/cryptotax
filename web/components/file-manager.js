@@ -106,7 +106,8 @@ function uploadFile(id, exchange) {
     var data = JSON.stringify({
         fileBytes: file.bytes,
         exchange: exchange,
-        fileName: file.name
+        fileName: file.name,
+        CSRFToken: $('input[name="csrf_token"]').val()
     });
 
     $.ajax({
@@ -119,7 +120,7 @@ function uploadFile(id, exchange) {
         timeout: 5000
     }).done(function(data) {
         // update from server
-        file.id = data.file_id;
+        file.id = data.fileId;
         file.date = data.date;
         file.exchange = data.exchange;
         file.message = data.message;
@@ -129,8 +130,6 @@ function uploadFile(id, exchange) {
         file.state = "added";
         file.success = false;
         file.message = "Failed to upload file.";
-    }).always(function(e) {
-        console.log("always finished: " + JSON.stringify(e, null, 4));
     });
 }
 
@@ -142,8 +141,10 @@ function deleteFile(file, index) {
     file.success = true;
     file.message = "";
 
+    var url = '/file?id=' + file.id + '&csrf_token=' + $('input[name="csrf_token"]').val();
+
     $.ajax({
-        url: '/file?id=' + file.id,
+        url: url,
         type: 'DELETE',
         cache: false,
         contentType: false,
@@ -155,8 +156,6 @@ function deleteFile(file, index) {
         file.state = "deletefailed";
         file.success = false;
         file.message = "Failed to delete file.";
-    }).always(function(e) {
-        console.log("always finished: " + JSON.stringify(e, null, 4));
     });
 }
 

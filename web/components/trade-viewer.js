@@ -12,6 +12,8 @@ Vue.component('trade-viewer', {
     },
     methods: {
         getFileTrades: function(e) {
+            app.trades.splice(0, app.trades.length);
+            
             var s = e.currentTarget;
             if (s.selectedIndex > 0) {
                 getFileTrades(s.value);
@@ -26,8 +28,6 @@ new Vue({
 });
 
 function getFileTrades(fid) {
-    app.trades.splice(0, app.trades.length);
-
     $.ajax({
         url: '/filetrades?id=' + fid,
         type: 'GET',

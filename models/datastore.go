@@ -8,17 +8,6 @@ import (
 
 // Datastore implements available DB methods
 type Datastore interface {
-	//CreateReport(*Report) (uint, error)
-	//GetReport(uint) (*Report, error)
-	//UpdateReportCurrency(*Report) error
-	//SaveFile(*File) (uint, error)
-	//GetFile(uint) (*File, error)
-	//GetReportFiles(uint) ([]*File, error)
-	//GetManualTrades(uint) ([]*Trade, error)
-	//DeleteFile(uint) error
-	//SaveTrade(*Trade) (uint, error)
-	//GetTrade(uint) (*Trade, error)
-	//DeleteTrade(uint) error
 	BeginTransaction() *DB
 	NewSession(*User) (*Session, error)
 	UpgradeSession(*Session, *User) error
@@ -32,6 +21,8 @@ type Datastore interface {
 	GetFiles(uint) ([]*File, error)
 	DeleteFile(uint, uint) error
 	GetFileTrades(uint, uint) ([]*Trade, error)
+	GetManualTrades(uint) ([]*Trade, error)
+	SaveTrade(*Trade) (*Trade, error)
 }
 
 // DB wraps gorm.DB

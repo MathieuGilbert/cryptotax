@@ -13,6 +13,7 @@ import (
 
 // Migrate models with gorm
 func Migrate() {
+	// TODO: use the config
 	db, err := gorm.Open("postgres", "host=localhost port=5432 user=cryptotax dbname=cryptotax_dev password=password!@# sslmode=disable")
 	if err != nil {
 		panic(fmt.Errorf("failed to connect database: %v", err))
@@ -566,6 +567,32 @@ func start(db *gorm.DB) error {
 					return err
 				}
 				if err := tx.AutoMigrate(&Trade{}).Error; err != nil {
+					return err
+				}
+				return nil
+			},
+		},
+		// add user_id to trades, to associate the manual ones
+		{
+			ID: "20180730095529",
+			Migrate: func(tx *gorm.DB) error {
+				type Trade struct {
+					UserID uint `gorm:"not null" json:"userId"`
+				}
+				if err := tx.AutoMigrate(&Trade{}).Error; err != nil {
+					return err
+				}
+				if err := tx.Model(&Trade{}).AddForeignKey("user_id", "users(id)", "RESTRICT", "RESTRICT").Error; err != nil {
+					return err
+				}
+				return nil
+			},
+			Rollback: func(tx *gorm.DB) error {
+				type Trade struct{}
+				if err := tx.Model(&Trade{}).RemoveForeignKey("user_id", "users(id)").Error; err != nil {
+					return err
+				}
+				if err := tx.Model(&Trade{}).DropColumn("user_id").Error; err != nil {
 					return err
 				}
 				return nil

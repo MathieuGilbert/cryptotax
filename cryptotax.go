@@ -91,6 +91,7 @@ func main() {
 
 	// add router endpoints and handlers
 	router := httprouter.New()
+
 	router.GET("/", env.getRoot)
 
 	router.GET("/register", env.getRegister)
@@ -108,22 +109,7 @@ func main() {
 
 	router.GET("/trades", env.getTrades)
 	router.POST("/trade", env.postTradeAsync)
-
-	//router.POST("/newreport", env.newReport)
-	//
-	//router.GET("/currency", env.setCurrency)
-	//router.POST("/currency", env.createReport)
-	//
-	//router.GET("/upload", env.manageFiles)
-	//router.POST("/upload", env.uploadFile)
-	//router.POST("/deletefile", env.deleteFile)
-	//
-	//router.GET("/trades", env.manageTrades)
-	//router.POST("/trades", env.addTrade)
-	//router.POST("/deletetrade", env.deleteTrade)
-	//router.POST("/downloadtrades", env.downloadTrades)
-	//
-	//router.GET("/report", env.viewReport)
+	router.DELETE("/trade", env.deleteTradeAsync)
 
 	// serve static files
 	router.ServeFiles("/web/js/*filepath", http.Dir("web/js"))

@@ -555,15 +555,15 @@ func (env *Env) deleteFileAsync(w http.ResponseWriter, r *http.Request, _ httpro
 	}
 
 	q := r.URL.Query()
-	id, err := strconv.ParseUint(q.Get("id"), 10, 64)
-	if err != nil {
-		http.Error(w, "Invalid file id", http.StatusBadRequest)
-		return
-	}
-
 	// verify CSRF token
 	if q.Get("csrf_token") != s.CSRFToken {
 		http.Error(w, "Invalid CSRF token", http.StatusBadRequest)
+		return
+	}
+
+	id, err := strconv.ParseUint(q.Get("id"), 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid file id", http.StatusBadRequest)
 		return
 	}
 
@@ -756,4 +756,35 @@ func (env *Env) postTradeAsync(w http.ResponseWriter, r *http.Request, _ httprou
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(resp)
+}
+
+func (env *Env) deleteTradeAsync(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	// requires active session and user
+	s, err := env.session(r)
+	if err != nil || s.UserID == 0 {
+		http.Error(w, "Expired session", http.StatusBadRequest)
+		return
+	}
+
+	q := r.URL.Query()
+	// verify CSRF token
+	if q.Get("csrf_token") != s.CSRFToken {
+		http.Error(w, "Invalid CSRF token", http.StatusBadRequest)
+		return
+	}
+
+	id, err := strconv.ParseUint(q.Get("id"), 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid trade id", http.StatusBadRequest)
+		return
+	}
+
+	if err = env.db.DeleteTrade(uint(id), s.UserID); err != nil {
+		http.Error(w, "Unable to delete trade", http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode("")
 }

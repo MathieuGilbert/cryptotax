@@ -1,6 +1,7 @@
 package models
 
 import (
+	"errors"
 	"time"
 )
 
@@ -39,5 +40,9 @@ func (db *DB) GetFiles(uid uint) ([]*File, error) {
 
 // DeleteFile and cascade delete associate trades
 func (db *DB) DeleteFile(id uint, uid uint) error {
-	return db.Delete(&File{ID: id, UserID: uid}).Error
+	q := db.Exec("DELETE FROM files WHERE id = ? AND user_id = ?", id, uid)
+	if deleted := q.RowsAffected == 1; !deleted {
+		return errors.New("unable to delete file")
+	}
+	return q.Error
 }

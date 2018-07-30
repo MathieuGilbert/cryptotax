@@ -21,7 +21,7 @@ Vue.component('file-manager', {
             var fi = app.files.findIndex(f => f.id === file.id);
             if (fi > -1) {
                 deleteFile(file, fi);
-                toggleDelete(e);
+                this.toggleDelete(e);
             }
         },
         toggleDelete: function(e) {

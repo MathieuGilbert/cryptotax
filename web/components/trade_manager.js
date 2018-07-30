@@ -46,6 +46,16 @@ Vue.component('trade-manager', {
             }
 
             saveTrade(t);
+        },
+        deleteTrade: function(e, trade) {
+            deleteTrade(trade.id);
+            this.toggleDelete(e);
+        },
+        toggleDelete: function(e) {
+            var row = $(e.currentTarget).closest("tr")
+            row.find(".delete-button").toggleClass("hidden");
+            row.find(".confirm-button").toggleClass("hidden");
+            row.find(".keep-button").toggleClass("hidden");
         }
     }
 });
@@ -87,5 +97,23 @@ function saveTrade(trade) {
         resetTrade(app.newTrade);
     }).fail(function(e) {
         app.newTrade.error = "Couldn't save trade.";
+    });
+}
+
+function deleteTrade(tid) {
+    var tindex = app.trades.findIndex(t => t.id === tid);
+    var url = '/trade?id=' + tid + '&csrf_token=' + $('input[name="csrf_token"]').val();
+
+    $.ajax({
+        url: url,
+        type: 'DELETE',
+        cache: false,
+        contentType: false,
+        processData: false,
+        timeout: 5000
+    }).done(function(data) {
+        app.trades.splice(tindex, 1);
+    }).fail(function(e) {
+        console.log("Error delting trade id: " + tid);
     });
 }

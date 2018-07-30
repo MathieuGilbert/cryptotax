@@ -2,6 +2,7 @@ package models
 
 import (
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -63,4 +64,13 @@ func (db *DB) GetFileTrades(fid uint, uid uint) ([]*Trade, error) {
 func (db *DB) GetManualTrades(uid uint) (trades []*Trade, err error) {
 	err = db.Raw("SELECT * FROM trades WHERE user_id=? AND file_id IS NULL", uid).Scan(&trades).Error
 	return
+}
+
+// DeleteTrade deletes the trade by id and user id
+func (db *DB) DeleteTrade(id uint, uid uint) error {
+	q := db.Exec("DELETE FROM trades WHERE id = ? and user_id = ?", id, uid)
+	if deleted := q.RowsAffected == 1; !deleted {
+		return errors.New("unable to delete trade")
+	}
+	return q.Error
 }

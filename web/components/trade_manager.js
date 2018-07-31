@@ -5,47 +5,23 @@ Vue.component('trade-manager', {
             newTrade: app.newTrade
         }
     },
+    computed: {
+        disableAdd: function() {
+            return error(this.newTrade) !== "";
+        }
+    },
     methods: {
         clearRow: function(e) {
             resetTrade(app.newTrade);
         },
         addTrade: function(e) {
             var t = app.newTrade;
+            var err = error(t);
+            t.error = err;
 
-            if (t.date === undefined || t.date.length !== 10) {
-                t.error = "Invalid date.";
-                return;
+            if (err === "") {
+                saveTrade(t);
             }
-            if (t.action === undefined || (t.action !== "BUY" && t.action !== "SELL")) {
-                t.error = "Must be BUY or SELL.";
-                return;
-            }
-            if (t.amount === undefined || t.amount.length === 0) {
-                t.error = "Amount missing.";
-                return;
-            }
-            if (t.currency === undefined || t.currency.length === 0) {
-                t.error = "Currency missing.";
-                return;
-            }
-            if (t.baseAmount === undefined || t.baseAmount.length === 0) {
-                t.error = "For amount missing.";
-                return;
-            }
-            if (t.baseCurrency === undefined || t.baseCurrency.length === 0) {
-                t.error = "For currency missing.";
-                return;
-            }
-            if (t.feeAmount === undefined || t.feeAmount.length === 0) {
-                t.error = "Fee amount missing.";
-                return;
-            }
-            if (t.feeCurrency === undefined || t.feeCurrency.length === 0) {
-                t.error = "Fee currency missing.";
-                return;
-            }
-
-            saveTrade(t);
         },
         deleteTrade: function(e, trade) {
             deleteTrade(trade.id);
@@ -56,6 +32,22 @@ Vue.component('trade-manager', {
             row.find(".delete-button").toggleClass("hidden");
             row.find(".confirm-button").toggleClass("hidden");
             row.find(".keep-button").toggleClass("hidden");
+        },
+        shortDate: function(date) {
+            return formatDate(date);
+        },
+        longDate: function(date) {
+            return formatDateLong(date);
+        },
+        isValid: function(e) {
+            // basic validation
+            var input = $(e.currentTarget);
+
+            if (input.val() === "") {
+                input.addClass("is-danger");
+            } else {
+                input.removeClass("is-danger");
+            }
         }
     }
 });
@@ -66,16 +58,11 @@ new Vue({
 });
 
 function resetTrade(t) {
-    t.id = ""
-    t.date = ""
-    t.action = "BUY"
-    t.amount = ""
-    t.currency = ""
-    t.baseAmount = ""
-    t.baseCurrency = ""
-    t.feeAmount = ""
-    t.feeCurrency = ""
-    t.error = ""
+    var n = newTrade();
+
+    Object.keys(n).forEach(function(key, i) {
+        t[key] = n[key];
+    });
 }
 
 function saveTrade(trade) {
@@ -93,6 +80,7 @@ function saveTrade(trade) {
         processData: false,
         timeout: 5000
     }).done(function(data) {
+        data.trade.date = formatDate(data.trade.date);
         app.trades.push(data.trade);
         resetTrade(app.newTrade);
     }).fail(function(e) {
@@ -116,4 +104,33 @@ function deleteTrade(tid) {
     }).fail(function(e) {
         console.log("Error delting trade id: " + tid);
     });
+}
+
+function error(t) {
+    if (t.date === undefined || t.date.length !== 10) {
+        return "Invalid date.";
+    }
+    if (t.action === undefined || (t.action !== "BUY" && t.action !== "SELL")) {
+        return "Must be BUY or SELL.";
+    }
+    if (t.amount === undefined || t.amount.length === 0) {
+        return "Amount missing.";
+    }
+    if (t.currency === undefined || t.currency.length === 0) {
+        return "Currency missing.";
+    }
+    if (t.baseAmount === undefined || t.baseAmount.length === 0) {
+        return "For amount missing.";
+    }
+    if (t.baseCurrency === undefined || t.baseCurrency.length === 0) {
+        return "For currency missing.";
+    }
+    if (t.feeAmount === undefined || t.feeAmount.length === 0) {
+        return "Fee amount missing.";
+    }
+    if (t.feeCurrency === undefined || t.feeCurrency.length === 0) {
+        return "Fee currency missing.";
+    }
+
+    return "";
 }

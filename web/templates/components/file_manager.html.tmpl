@@ -24,7 +24,7 @@
                         <div class="field" v-if="file.state === 'added'">
                             <div class="control">
                                 <div class="select is-small is-danger">
-                                    <select class="select-exchange" v-on:change="upload($event, file)">
+                                    <select class="select-exchange" @change="upload($event, file)">
                                         <option>Select Exchange</option>
                                         {{range $k, $v := .Data.Exchanges}}
                                             <option value="{{$v}}">{{$v}}</option>
@@ -37,12 +37,12 @@
                     </td>
                     <td>
                         <div v-if="file.state !== 'uploaded' && file.state !== 'deleting' && file.state !== 'deletefailed'">
-                            <input type="button" value="Remove" class="button is-small is-danger remove-file" v-on:click="remove($event, file)">
+                            <input type="button" value="Remove" class="button is-small is-danger remove-file" @click="remove($event, file)">
                         </div>
                         <div v-if="file.state === 'uploaded' || file.state === 'deletefailed'">
-                            <input type="button" value="Delete" class="button is-small is-danger delete-button" v-on:click="toggleDelete">
-                            <input type="button" value="Confirm" class="button is-small is-danger confirm-button hidden" v-on:click="deleteFile($event, file);">
-                            <input type="button" value="Keep" class="button is-small is-primary keep-button hidden" v-on:click="toggleDelete">
+                            <input type="button" value="Delete" class="button is-small is-danger delete-button" @click="toggleDelete">
+                            <input type="button" value="Confirm" class="button is-small is-danger confirm-button hidden" @click="deleteFile($event, file);">
+                            <input type="button" value="Keep" class="button is-small is-primary keep-button hidden" @click="toggleDelete">
                         </div>
                     </td>
                 </tr>

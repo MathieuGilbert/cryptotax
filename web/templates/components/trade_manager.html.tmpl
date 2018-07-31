@@ -20,39 +20,118 @@
             <tbody>
                 <tr>
                     <td>
-                        <input type="date" name="date" v-model="newTrade.date">
+                        <div class="field">
+                            <div class="control">
+                                <input class="input is-small" type="date" name="date" v-model="newTrade.date" @keyup="isValid" @blur="isValid">
+                            </div>
+                        </div>
                     </td>
                     <td>
-                        <input id="buy" type="radio" name="action" value="BUY" v-model="newTrade.action" checked>
-                        <label for="buy">BUY</label>
-                        <input id="sell" type="radio" name="action" value="SELL" v-model="newTrade.action">
-                        <label for="sell">SELL</label>
+                        <div class="field ">
+                            <div class="control">
+                                <div class="radio">
+                                    <input id="buy" type="radio" name="action" value="BUY" v-model="newTrade.action" checked="checked">
+                                    <label for="buy" class="label is-small">BUY</label>
+                                </div>
+                                <br>
+                                <div class="radio">
+                                    <input id="sell" type="radio" name="action" value="SELL" v-model="newTrade.action">
+                                    <label for="sell" class="label is-small">SELL</label>
+                                </div>
+                            </div>
+                        </div>
                     </td>
-                    <td><input type="number" name="amount" v-model="newTrade.amount"></td>
-                    <td><input type="text" name="currency" v-model="newTrade.currency"></td>
-                    <td><input type="number" name="base_amount" v-model="newTrade.baseAmount"></td>
-                    <td><input type="text" name="base_currency"v-model="newTrade.baseCurrency"></td>
-                    <td><input type="number" name="fee_amount" v-model="newTrade.feeAmount"></td>
-                    <td><input type="text" name="fee_currency" v-model="newTrade.feeCurrency"></td>
                     <td>
-                        <input type="button" value="Add" class="button is-small is-primary" @click="addTrade">
-                        <input type="button" value="Clear" class="button is-small is-danger" @click="clearRow">
-                        <p class="help is-danger">${newTrade.error}</p>
+                        <div class="field">
+                            <div class="control">
+                                <input class="input is-small" type="number" name="amount" placeholder="100" v-model="newTrade.amount" @keyup="isValid" @blur="isValid">
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="field">
+                            <div class="control">
+                                <input class="input is-small" type="text" name="currency" placeholder="ETH" v-model="newTrade.currency" @keyup="isValid" @blur="isValid">
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="field">
+                            <div class="control">
+                                <input class="input is-small" type="number" name="base_amount" placeholder="10" v-model="newTrade.baseAmount" @keyup="isValid" @blur="isValid">
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="field">
+                            <div class="control">
+                                <input class="input is-small" type="text" name="base_currency" placeholder="BTC" v-model="newTrade.baseCurrency" @keyup="isValid" @blur="isValid">
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="field">
+                            <div class="control">
+                                <input class="input is-small" type="number" name="fee_amount" placeholder="0.1" v-model="newTrade.feeAmount" @keyup="isValid" @blur="isValid">
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="field">
+                            <div class="control">
+                                <input class="input is-small" type="text" name="fee_currency" placeholder="ETH" v-model="newTrade.feeCurrency" @keyup="isValid" @blur="isValid">
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="field is-grouped">
+                            <div class="control">
+                                <input type="button" value="Add" class="button is-small add-button is-success" @click="addTrade" v-bind:disabled="disableAdd">
+                            </div>
+                            <div class="control">
+                                <input type="button" value="Clear" class="button is-small is-danger" @click="clearRow">
+                            </div>
+                            <p class="help is-danger">${newTrade.error}</p>
+                        </div>
                     </td>
                 </tr>
                 <tr v-for="trade in trades" :key="trade.id">
-                    <td>${trade.date}</td>
-                    <td>${trade.action}</td>
-                    <td>${trade.amount}</td>
-                    <td>${trade.currency}</td>
-                    <td>${trade.baseAmount}</td>
-                    <td>${trade.baseCurrency}</td>
-                    <td>${trade.feeAmount}</td>
-                    <td>${trade.feeCurrency}</td>
                     <td>
-                        <input type="button" value="Delete" class="button is-small is-danger delete-button" v-on:click="toggleDelete">
-                        <input type="button" value="Confirm" class="button is-small is-danger confirm-button hidden" v-on:click="deleteTrade($event, trade);">
-                        <input type="button" value="Keep" class="button is-small is-primary keep-button hidden" v-on:click="toggleDelete">
+                        <label class="label is-small" v-bind:title="longDate(trade.date)">${shortDate(trade.date)}</label>
+                    </td>
+                    <td>
+                        <label class="label is-small">${trade.action}</label>
+                    </td>
+                    <td>
+                        <label class="label is-small">${trade.amount}</label>
+                    </td>
+                    <td>
+                        <label class="label is-small">${trade.currency}</label>
+                    </td>
+                    <td>
+                        <label class="label is-small">${trade.baseAmount}</label>
+                    </td>
+                    <td>
+                        <label class="label is-small">${trade.baseCurrency}</label>
+                    </td>
+                    <td>
+                        <label class="label is-small">${trade.feeAmount}</label>
+                    </td>
+                    <td>
+                        <label class="label is-small">${trade.feeCurrency}</label>
+                    </td>
+                    <td>
+                        <div class="field is-grouped">
+                            <div class="control delete-button">
+                                <input type="button" value="Delete" class="button is-small is-danger" @click="toggleDelete">
+                            </div>
+                            <div class="control keep-button hidden">
+                                <input type="button" value="Keep" class="button is-small is-success" @click="toggleDelete">
+                            </div>
+                            <div class="control confirm-button hidden">
+                                <input type="button" value="Confirm" class="button is-small is-danger" @click="deleteTrade($event, trade);">
+                            </div>
+                        </div>
                     </td>
                 </tr>
             </tbody>

@@ -1,22 +1,51 @@
 if (typeof app === "undefined" || app === null) app = {};
 app.files = [];
 app.trades = [];
-app.newTrade = {
-    id: "",
-    date: "2017-06-20",
-    action: "BUY",
-    amount: "10000",
-    currency: "OMG",
-    baseAmount: "10",
-    baseCurrency: "ETH",
-    feeAmount: "4",
-    feeCurrency: "OMG",
-    error: ""
-};
+app.newTrade = newTrade();
 
 $(document).ready(function() {
+    // Bulma hamburger nav
     $(".navbar-burger").click(function() {
         $(".navbar-burger").toggleClass("is-active");
         $(".navbar-menu").toggleClass("is-active");
     });
 });
+
+function newTrade() {
+    return {
+        id: "",
+        date: "",
+        action: "BUY",
+        amount: "",
+        currency: "",
+        baseAmount: "",
+        baseCurrency: "",
+        feeAmount: "",
+        feeCurrency: "",
+        error: ""
+    };
+}
+
+function formatDate(date) {
+    var dt = new Date(date);
+    var y = dt.getFullYear();
+    var m = zeroPad(dt.getMonth() + 1);
+    var d = zeroPad(dt.getDate());
+
+    return y + '-' + m + '-' + d;
+}
+
+function formatDateLong(date) {
+    var dt = new Date(date);
+    var y = dt.getFullYear();
+    var m = zeroPad(dt.getMonth() + 1);
+    var d = zeroPad(dt.getDate());
+    var h = zeroPad(dt.getHours());
+    var min = zeroPad(dt.getMinutes());
+
+    return y + '-' + m + '-' + d + ' ' + h + ':' + min;
+}
+
+function zeroPad(s) {
+    return ("00" + s).slice(-2);
+}

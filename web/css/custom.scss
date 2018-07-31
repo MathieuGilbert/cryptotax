@@ -1,4 +1,4 @@
-$primary: #8A7D66;
+$primary: #999BEA;
 $footer-height: 50px;
 
 
@@ -24,4 +24,14 @@ body {
 
 .hidden {
     display: none !important;
+}
+
+.radio {
+    input {
+        float: left;
+        margin-right: 5px;
+    }
+    label {
+        float: left;
+    }
 }

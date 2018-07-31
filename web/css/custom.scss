@@ -1,6 +1,7 @@
 $primary: #999BEA;
 $footer-height: 50px;
-
+$table-row-active-background-color: lighten($primary, 20%);
+$table-row-active-color: #363636;
 
 html {
     position: relative;

@@ -27,6 +27,9 @@ function newTrade() {
 }
 
 function formatDate(date) {
+    if (date === undefined || date === "") {
+        return "";
+    }
     var dt = new Date(date);
     var y = dt.getFullYear();
     var m = zeroPad(dt.getMonth() + 1);
@@ -36,6 +39,9 @@ function formatDate(date) {
 }
 
 function formatDateLong(date) {
+    if (date === undefined || date === "") {
+        return "";
+    }
     var dt = new Date(date);
     var y = dt.getFullYear();
     var m = zeroPad(dt.getMonth() + 1);

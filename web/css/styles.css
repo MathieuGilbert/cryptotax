@@ -3093,8 +3093,8 @@ a.box:active {
       width: 1%; }
     .table td.is-selected,
     .table th.is-selected {
-      background-color: #999BEA;
-      color: #fff; }
+      background-color: #eeeefb;
+      color: #363636; }
       .table td.is-selected a,
       .table td.is-selected strong,
       .table th.is-selected a,
@@ -3104,14 +3104,14 @@ a.box:active {
     color: #363636;
     text-align: left; }
   .table tr.is-selected {
-    background-color: #999BEA;
-    color: #fff; }
+    background-color: #eeeefb;
+    color: #363636; }
     .table tr.is-selected a,
     .table tr.is-selected strong {
       color: currentColor; }
     .table tr.is-selected td,
     .table tr.is-selected th {
-      border-color: #fff;
+      border-color: #363636;
       color: currentColor; }
   .table thead td,
   .table thead th {

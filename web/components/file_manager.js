@@ -1,44 +1,58 @@
-Vue.component('file-manager', {
-    data() {
-        return {
-            files: app.files
-        }
-    },
-    methods: {
-        remove: function(e, file) {
-            var fi = app.files.findIndex(f => f.id === file.id);
-            if (fi > -1) {
-                app.files.splice(fi, 1);
-            }
-        },
-        upload: function(e, file) {
-            var s = e.currentTarget;
-            if (s.selectedIndex > 0) {
-                uploadFile(file.id, s.value);
-            }
-        },
-        deleteFile: function(e, file) {
-            var fi = app.files.findIndex(f => f.id === file.id);
-            if (fi > -1) {
-                deleteFile(file, fi);
-                this.toggleDelete(e);
-            }
-        },
-        toggleDelete: function(e) {
-            var row = $(e.currentTarget).closest("tr")
-            row.find(".delete-button").toggleClass("hidden");
-            row.find(".confirm-button").toggleClass("hidden");
-            row.find(".keep-button").toggleClass("hidden");
-        }
-    }
-});
-
-new Vue({
-    delimiters: ['${', '}'],
-    el: '#fm'
-});
-
 $(document).ready(function() {
+    Vue.component('file-manager', {
+        data() {
+            return {
+                files: app.files,
+                trades: app.trades
+            }
+        },
+        methods: {
+            remove: function(e, file) {
+                var fi = app.files.findIndex(f => f.id === file.id);
+                if (fi > -1) {
+                    app.files.splice(fi, 1);
+                }
+            },
+            upload: function(e, file) {
+                var s = e.currentTarget;
+                if (s.selectedIndex > 0) {
+                    uploadFile(file.id, s.value);
+                }
+            },
+            confirmDelete: function(e, file) {
+                var fi = app.files.findIndex(f => f.id === file.id);
+                if (fi > -1) {
+                    deleteFile(file, fi);
+                    toggleDelete(e);
+                }
+            },
+            keepFile: function(e) {
+                $(".is-selected").removeClass("is-selected");
+                toggleDelete(e);
+            },
+            wantDelete: function(e) {
+                selectRow(e);
+                toggleDelete(e);
+            },
+            viewTrades: function(e, file) {
+                selectRow(e);
+                app.trades.splice(0, app.trades.length);
+                getFileTrades(file.id);
+            },
+            shortDate: function(date) {
+                return formatDate(date);
+            },
+            longDate: function(date) {
+                return formatDateLong(date);
+            }
+        }
+    });
+
+    new Vue({
+        delimiters: ['${', '}'],
+        el: '#fm'
+    });
+
     // load chosen files into grid
     $(':file').on('change', function() {
         // add valid files
@@ -157,6 +171,37 @@ function deleteFile(file, index) {
         file.success = false;
         file.message = "Failed to delete file.";
     });
+}
+
+function getFileTrades(fid) {
+    $.ajax({
+        url: '/filetrades?id=' + fid,
+        type: 'GET',
+        cache: false,
+        contentType: false,
+        processData: false,
+        timeout: 5000
+    }).done(function(data) {
+        for (var i = 0; i < data.trades.length; i++) {
+            app.trades.push(data.trades[i]);
+        }
+    }).fail(function(e) {
+        console.log('failure: ' + e);
+    });
+}
+
+function selectRow(e) {
+    $(".is-selected").removeClass("is-selected");
+    var row = $(e.currentTarget).closest("tr");
+    row.addClass("is-selected");
+}
+
+function toggleDelete(e) {
+    var row = $(e.currentTarget).closest("tr")
+    row.find(".delete-button").toggleClass("hidden");
+    row.find(".view-button").toggleClass("hidden");
+    row.find(".confirm-button").toggleClass("hidden");
+    row.find(".keep-button").toggleClass("hidden");
 }
 
 function generateUUID() {

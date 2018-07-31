@@ -2,7 +2,7 @@
 <file-manager inline-template id="fm">
     <div>
         <hr>
-        <table class="table files-table" v-if="files.length">
+        <table class="table is-hoverable is-fullwidth files-table" v-if="files.length">
             <thead>
                 <tr>
                     <th>&nbsp;</th>
@@ -18,8 +18,12 @@
                         ${file.state}
                         <p class="help is-danger" v-if="file.success !== true">${file.message}</p>
                     </td>
-                    <td>${file.name}</td>
-                    <td>${file.date}</td>
+                    <td>
+                        <span class="is-size-6">${file.name}</span>
+                    </td>
+                    <td>
+                        <span class="is-size-6" v-bind:title="longDate(file.date)">${shortDate(file.date)}</span>
+                    </td>
                     <td>
                         <div class="field" v-if="file.state === 'added'">
                             <div class="control">
@@ -33,21 +37,67 @@
                                 </div>
                             </div>
                         </div>
-                        ${file.exchange}
+                        <span class="is-size-6" vs-if="file.state !== 'added'">${file.exchange}</span>
                     </td>
                     <td>
                         <div v-if="file.state !== 'uploaded' && file.state !== 'deleting' && file.state !== 'deletefailed'">
                             <input type="button" value="Remove" class="button is-small is-danger remove-file" @click="remove($event, file)">
                         </div>
                         <div v-if="file.state === 'uploaded' || file.state === 'deletefailed'">
-                            <input type="button" value="Delete" class="button is-small is-danger delete-button" @click="toggleDelete">
-                            <input type="button" value="Confirm" class="button is-small is-danger confirm-button hidden" @click="deleteFile($event, file);">
-                            <input type="button" value="Keep" class="button is-small is-primary keep-button hidden" @click="toggleDelete">
+                            <input type="button" value="Delete" class="button is-small is-danger delete-button" @click="wantDelete">
+                            <input type="button" value="View" class="button is-small is-info view-button" @click="viewTrades($event, file)">
+                            <input type="button" value="Keep" class="button is-small is-primary keep-button hidden" @click="keepFile">
+                            <input type="button" value="Confirm" class="button is-small is-danger confirm-button hidden" @click="confirmDelete($event, file);">
                         </div>
                     </td>
                 </tr>
             </tbody>
         </table>
+        <div v-if="trades.length">
+            <hr>
+            <table class="table is-fullwidth trades-table" v-if="trades.length">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Action</th>
+                        <th>Amount</th>
+                        <th>&nbsp;</th>
+                        <th>For</th>
+                        <th>&nbsp;</th>
+                        <th>Fee</th>
+                        <th>&nbsp;</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="trade in trades" :key="trade.id">
+                        <td>
+                            <span class="is-size-6" v-bind:title="longDate(trade.date)">${shortDate(trade.date)}</span>
+                        </td>
+                        <td>
+                            <span class="is-size-6">${trade.action}</span>
+                        </td>
+                        <td>
+                            <span class="is-size-6">${trade.amount}</span>
+                        </td>
+                        <td>
+                            <span class="is-size-6">${trade.currency}</span>
+                        </td>
+                        <td>
+                            <span class="is-size-6">${trade.baseAmount}</span>
+                        </td>
+                        <td>
+                            <span class="is-size-6">${trade.baseCurrency}</span>
+                        </td>
+                        <td>
+                            <span class="is-size-6">${trade.feeAmount}</span>
+                        </td>
+                        <td>
+                            <span class="is-size-6">${trade.feeCurrency}</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 </file-manager>
 {{end}}

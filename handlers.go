@@ -361,7 +361,6 @@ func (env *Env) getFiles(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 	// build page
 	t, err := pageTemplate(
 		"web/templates/components/file_manager.html.tmpl",
-		"web/templates/components/trade_viewer.html.tmpl",
 		"web/templates/manage_files.html.tmpl",
 	)
 	if err != nil {

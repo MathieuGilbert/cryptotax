@@ -3,7 +3,7 @@
     <div>
         <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
 
-        <table class="table">
+        <table class="table is-hoverable is-fullwidth">
             <thead>
                 <tr>
                     <th>Date</th>
@@ -97,28 +97,28 @@
                 </tr>
                 <tr v-for="trade in trades" :key="trade.id">
                     <td>
-                        <label class="label is-small" v-bind:title="longDate(trade.date)">${shortDate(trade.date)}</label>
+                        <span class="is-size-6" v-bind:title="longDate(trade.date)">${shortDate(trade.date)}</span>
                     </td>
                     <td>
-                        <label class="label is-small">${trade.action}</label>
+                        <span class="is-size-6">${trade.action}</span>
                     </td>
                     <td>
-                        <label class="label is-small">${trade.amount}</label>
+                        <span class="is-size-6">${trade.amount}</span>
                     </td>
                     <td>
-                        <label class="label is-small">${trade.currency}</label>
+                        <span class="is-size-6">${trade.currency}</span>
                     </td>
                     <td>
-                        <label class="label is-small">${trade.baseAmount}</label>
+                        <span class="is-size-6">${trade.baseAmount}</span>
                     </td>
                     <td>
-                        <label class="label is-small">${trade.baseCurrency}</label>
+                        <span class="is-size-6">${trade.baseCurrency}</span>
                     </td>
                     <td>
-                        <label class="label is-small">${trade.feeAmount}</label>
+                        <span class="is-size-6">${trade.feeAmount}</span>
                     </td>
                     <td>
-                        <label class="label is-small">${trade.feeCurrency}</label>
+                        <span class="is-size-6">${trade.feeCurrency}</span>
                     </td>
                     <td>
                         <div class="field is-grouped">

@@ -27,11 +27,9 @@ $(document).ready(function() {
                 }
             },
             keepFile: function(e) {
-                $(".is-selected").removeClass("is-selected");
                 toggleDelete(e);
             },
             wantDelete: function(e) {
-                selectRow(e);
                 toggleDelete(e);
             },
             viewTrades: function(e, file) {
@@ -44,6 +42,38 @@ $(document).ready(function() {
             },
             longDate: function(date) {
                 return formatDateLong(date);
+            },
+            icon: function(file) {
+                var fa = "";
+                var status = "";
+
+                switch (file.state) {
+                case "addfailed":
+                    fa = "fa-exclamation";
+                    status = "red-progress";
+                    break;
+                case "added":
+                    fa = "fa-question";
+                    status = file.success ? "green-progress" : "red-progress";
+                    break;
+                case "uploading":
+                     fa = "fa-spinner fa-spin";
+                     status = "green-progress";
+                     break;
+                case "uploaded":
+                     fa = "fa-check";
+                     status = "green-progress";
+                     break;
+                case "deleting":
+                     fa = "fa-spinner fa-spin";
+                     status = "red-progress";
+                     break;
+                case "deletefailed":
+                     fa = "fa-exclamation";
+                     status = "red-progress";
+                     break;
+                }
+                return status + " " + fa;
             }
         }
     });
@@ -64,6 +94,10 @@ $(document).ready(function() {
                 message = "Empty file.";
                 success = false;
             }
+            if (file.size > 1 * 2**20) {
+                message = "Max size 1 MB.";
+                success = false;
+            }
             if (file.type != "text/csv") {
                 message = "Invalid CSV file.";
                 success = false;
@@ -78,6 +112,13 @@ $(document).ready(function() {
                 "message": message,
                 "success": success
             };
+
+            if (!success) {
+                app.files.push(f);
+                return true;
+            }
+
+            // get byte array of file
             var callback = function(bytes) {
                 // set values
                 f.bytes = btoa(bytes);
@@ -91,7 +132,7 @@ $(document).ready(function() {
                 var fileBytes = JSON.stringify(Array.from(array));
                 callback(fileBytes);
             }
-            fr.readAsArrayBuffer(file)
+            fr.readAsArrayBuffer(file);
         });
 
         // clear the processed file input

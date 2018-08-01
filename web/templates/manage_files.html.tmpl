@@ -1,10 +1,11 @@
 {{define "content"}}
-<h1 class="title">Select exchange CSV files to upload</h1>
+<h1 class="title">Manage Trade History Files</h1>
+<h2 class="subtitle">Upload CSV files from various cruptocurrency exchanges.</h2>
 <form id="file-upload" enctype="multipart/form-data">
     <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
     <div class="file">
         <label class="file-label">
-            <input class="file-input" type="file" multiple name="file">
+            <input class="file-input" type="file" name="file" multiple accept=".csv">
             <span class="file-cta">
                 <span class="file-icon">
                     <i class="fas fa-upload"></i>

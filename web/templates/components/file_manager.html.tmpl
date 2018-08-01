@@ -5,19 +5,15 @@
         <table class="table is-hoverable is-fullwidth files-table" v-if="files.length">
             <thead>
                 <tr>
-                    <th>&nbsp;</th>
                     <th>Name</th>
                     <th>Uploaded</th>
                     <th>Exchange</th>
+                    <th>&nbsp;</th>
                     <th>&nbsp;</th>
                 </tr>
             </thead>
             <tbody>
                 <tr v-for="file in files" :key="file.id">
-                    <td>
-                        ${file.state}
-                        <p class="help is-danger" v-if="file.success !== true">${file.message}</p>
-                    </td>
                     <td>
                         <span class="is-size-6">${file.name}</span>
                     </td>
@@ -39,6 +35,9 @@
                         </div>
                         <span class="is-size-6" vs-if="file.state !== 'added'">${file.exchange}</span>
                     </td>
+                    <td class="is-narrow">
+                        <i class="fa is-size-6" :class="icon(file)"></i>
+                    </td>
                     <td>
                         <div v-if="file.state !== 'uploaded' && file.state !== 'deleting' && file.state !== 'deletefailed'">
                             <input type="button" value="Remove" class="button is-small is-danger remove-file" @click="remove($event, file)">
@@ -49,6 +48,7 @@
                             <input type="button" value="Keep" class="button is-small is-primary keep-button hidden" @click="keepFile">
                             <input type="button" value="Confirm" class="button is-small is-danger confirm-button hidden" @click="confirmDelete($event, file);">
                         </div>
+                        <p class="help is-danger" v-if="file.success !== true">${file.message}</p>
                     </td>
                 </tr>
             </tbody>

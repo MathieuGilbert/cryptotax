@@ -1,4 +1,6 @@
 $primary: #999BEA;
+$red: #FF0000;
+$green: #00FF00;
 $footer-height: 50px;
 $table-row-active-background-color: lighten($primary, 20%);
 $table-row-active-color: #363636;
@@ -35,4 +37,12 @@ body {
     label {
         float: left;
     }
+}
+
+.red-progress {
+    color: $red;
+}
+
+.green-progress {
+    color: $green;
 }

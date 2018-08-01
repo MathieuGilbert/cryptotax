@@ -5,15 +5,20 @@
         <table class="table is-hoverable is-fullwidth files-table" v-if="files.length">
             <thead>
                 <tr>
+                    <th>&nbsp;</th>
                     <th>Name</th>
                     <th>Uploaded</th>
                     <th>Exchange</th>
-                    <th>&nbsp;</th>
                     <th>&nbsp;</th>
                 </tr>
             </thead>
             <tbody>
                 <tr v-for="file in files" :key="file.id">
+                    <td class="is-narrow">
+                        <div style="width: 24px; height: 24px;">
+                            <img :src="icon(file.state)"/>
+                        </div>
+                    </td>
                     <td>
                         <span class="is-size-6">${file.name}</span>
                     </td>
@@ -34,9 +39,6 @@
                             </div>
                         </div>
                         <span class="is-size-6" vs-if="file.state !== 'added'">${file.exchange}</span>
-                    </td>
-                    <td class="is-narrow">
-                        <i class="fa is-size-6" :class="icon(file)"></i>
                     </td>
                     <td>
                         <div v-if="file.state !== 'uploaded' && file.state !== 'deleting' && file.state !== 'deletefailed'">

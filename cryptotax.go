@@ -115,6 +115,7 @@ func main() {
 	router.ServeFiles("/web/js/*filepath", http.Dir("web/js"))
 	router.ServeFiles("/web/components/*filepath", http.Dir("web/components"))
 	router.ServeFiles("/web/css/*filepath", http.Dir("web/css"))
+	router.ServeFiles("/web/images/*filepath", http.Dir("web/images"))
 
 	// start the web server
 	log.Println("Web server ready.")

@@ -43,37 +43,31 @@ $(document).ready(function() {
             longDate: function(date) {
                 return formatDateLong(date);
             },
-            icon: function(file) {
-                var fa = "";
-                var status = "";
+            icon: function(state) {
+                var file = "";
 
-                switch (file.state) {
+                switch (state) {
                 case "addfailed":
-                    fa = "fa-exclamation";
-                    status = "red-progress";
+                    file = "exclaim-red.png";
                     break;
                 case "added":
-                    fa = "fa-question";
-                    status = file.success ? "green-progress" : "red-progress";
+                    var color = file.success ? "green" : "red";
+                    file = "question-" + color + ".png";
                     break;
                 case "uploading":
-                     fa = "fa-spinner fa-spin";
-                     status = "green-progress";
+                     file = "spinner.png";
                      break;
                 case "uploaded":
-                     fa = "fa-check";
-                     status = "green-progress";
+                     file = "check-green.png";
                      break;
                 case "deleting":
-                     fa = "fa-spinner fa-spin";
-                     status = "red-progress";
+                     file = "spinner.png";
                      break;
                 case "deletefailed":
-                     fa = "fa-exclamation";
-                     status = "red-progress";
+                     file = "exclaim-red.png";
                      break;
                 }
-                return status + " " + fa;
+                return "web/images/" + file;
             }
         }
     });

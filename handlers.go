@@ -21,6 +21,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/lib/pq"
 	"github.com/mathieugilbert/cryptotax/cmd/parsers"
+	"github.com/mathieugilbert/cryptotax/cmd/reports"
 	"github.com/mathieugilbert/cryptotax/models"
 	"github.com/shopspring/decimal"
 )
@@ -360,8 +361,8 @@ func (env *Env) getFiles(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 
 	// build page
 	t, err := pageTemplate(
-		"web/templates/components/file_manager.html.tmpl",
 		"web/templates/manage_files.html.tmpl",
+		"web/templates/components/file_manager.html.tmpl",
 	)
 	if err != nil {
 		log.Printf("%+v", err)
@@ -393,7 +394,6 @@ func (env *Env) postUploadAsync(w http.ResponseWriter, r *http.Request, _ httpro
 
 	// posted JSON structure
 	type Data struct {
-		FileText  string
 		FileBytes string
 		Exchange  string
 		FileName  string
@@ -772,6 +772,7 @@ func (env *Env) deleteTradeAsync(w http.ResponseWriter, r *http.Request, _ httpr
 		return
 	}
 
+	// get query params
 	id, err := strconv.ParseUint(q.Get("id"), 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid trade id", http.StatusBadRequest)
@@ -786,4 +787,113 @@ func (env *Env) deleteTradeAsync(w http.ResponseWriter, r *http.Request, _ httpr
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode("")
+}
+
+func (env *Env) getReports(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	// requires active session and user
+	s, err := env.session(r)
+	if err != nil || s.UserID == 0 {
+		http.Error(w, "Expired session", http.StatusBadRequest)
+		return
+	}
+
+	// build page
+	t, err := pageTemplate(
+		"web/templates/reports.html.tmpl",
+		"web/templates/components/report_viewer.html.tmpl",
+	)
+	if err != nil {
+		log.Printf("%+v", err)
+		http.Error(w, "Template error", http.StatusInternalServerError)
+		return
+	}
+
+	pr := &Presenter{
+		LoggedIn:  true,
+		CSRFToken: s.CSRFToken,
+	}
+
+	t.Execute(w, pr)
+}
+
+func (env *Env) getReportAsync(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	// requires active session and user
+	s, err := env.session(r)
+	if err != nil || s.UserID == 0 {
+		http.Error(w, "Expired session", http.StatusBadRequest)
+		return
+	}
+
+	q := r.URL.Query()
+	// verify CSRF token
+	if q.Get("csrf_token") != s.CSRFToken {
+		http.Error(w, "Invalid CSRF token", http.StatusBadRequest)
+		return
+	}
+
+	// get query params
+	t := q.Get("type")
+	if t != "Holdings" && t != "ACB" {
+		http.Error(w, "Invalid report type", http.StatusBadRequest)
+		return
+	}
+
+	c := q.Get("currency")
+	if c != "CAD" {
+		http.Error(w, "Invalid currency", http.StatusBadRequest)
+		return
+	}
+
+	a := q.Get("asof")
+	if a != "Today" && a != "EOY2017" {
+		http.Error(w, "Invalid as of", http.StatusBadRequest)
+		return
+	}
+
+	rpt := &reports.Holdings{Currency: c}
+
+	ts, err := env.db.GetUserTrades(s.UserID)
+	if err != nil {
+		http.Error(w, "Error getting user trades", http.StatusInternalServerError)
+		return
+	}
+
+	type Item struct {
+		Asset  string          `json:"asset"`
+		Amount decimal.Decimal `json:"amount"`
+		ACB    decimal.Decimal `json:"acb"`
+		Value  decimal.Decimal `json:"value"`
+		Gain   decimal.Decimal `json:"gain"`
+	}
+	type Response struct {
+		Items []*Item `json:"items"`
+		Error string  `json:"error"`
+	}
+	resp := &Response{}
+
+	err = rpt.Build(ts, convert)
+	if err != nil {
+		switch err.(type) {
+		case *reports.Oversold:
+			resp.Error = err.Error()
+		default:
+			http.Error(w, "Error building report", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// add the items
+	for _, i := range rpt.Items {
+		resp.Items = append(resp.Items, &Item{
+			Asset:  i.Asset,
+			Amount: i.Amount,
+			ACB:    i.ACB,
+			Value:  i.Value,
+			Gain:   i.Gain,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(resp)
 }

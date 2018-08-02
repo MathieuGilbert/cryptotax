@@ -2,6 +2,12 @@ if (typeof app === "undefined" || app === null) app = {};
 app.files = [];
 app.trades = [];
 app.newTrade = newTrade();
+app.report = {
+    type: "Holdings",
+    currency: "",
+    asOf: ""
+};
+app.reportItems = [];
 
 $(document).ready(function() {
     // Bulma hamburger nav

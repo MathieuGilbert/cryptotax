@@ -111,6 +111,9 @@ func main() {
 	router.POST("/trade", env.postTradeAsync)
 	router.DELETE("/trade", env.deleteTradeAsync)
 
+	router.GET("/reports", env.getReports)
+	router.GET("/report", env.getReportAsync)
+
 	// serve static files
 	router.ServeFiles("/web/js/*filepath", http.Dir("web/js"))
 	router.ServeFiles("/web/components/*filepath", http.Dir("web/components"))

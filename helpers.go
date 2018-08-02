@@ -4,8 +4,10 @@ import (
 	"html/template"
 	"net/http"
 	"path"
+	"time"
 
 	"github.com/mathieugilbert/cryptotax/models"
+	"github.com/shopspring/decimal"
 )
 
 func (f *Form) fail(field, message string) {
@@ -126,4 +128,12 @@ func (env *Env) currentUser(r *http.Request) (*models.User, error) {
 	}
 
 	return u, nil
+}
+
+func convert(amount decimal.Decimal, from, to string, on time.Time) (decimal.Decimal, error) {
+	if from == to {
+		return amount, nil
+	}
+
+	return amount.Mul(decimal.NewFromFloat(2)), nil
 }

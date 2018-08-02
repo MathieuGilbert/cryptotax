@@ -24,6 +24,7 @@ type Datastore interface {
 	GetManualTrades(uint) ([]*Trade, error)
 	SaveTrade(*Trade) (*Trade, error)
 	DeleteTrade(uint, uint) error
+	GetUserTrades(uint) ([]*Trade, error)
 }
 
 // DB wraps gorm.DB

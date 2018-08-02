@@ -52,6 +52,7 @@ func (db *DB) GetTrade(id uint) (*Trade, error) {
 
 // GetFileTrades returns trades for the file id and user id
 func (db *DB) GetFileTrades(fid uint, uid uint) ([]*Trade, error) {
+	// make user user owns the file
 	if f, err := db.GetFile(fid); err != nil || f.UserID != uid {
 		return nil, err
 	}
@@ -68,9 +69,16 @@ func (db *DB) GetManualTrades(uid uint) (trades []*Trade, err error) {
 
 // DeleteTrade deletes the trade by id and user id
 func (db *DB) DeleteTrade(id uint, uid uint) error {
+	// make sure user owns the trade
 	q := db.Exec("DELETE FROM trades WHERE id = ? and user_id = ?", id, uid)
 	if deleted := q.RowsAffected == 1; !deleted {
 		return errors.New("unable to delete trade")
 	}
 	return q.Error
+}
+
+// GetUserTrades retrieves all trades by user id
+func (db *DB) GetUserTrades(id uint) (ts []*Trade, err error) {
+	err = db.Where(&Trade{UserID: id}).Find(&ts).Error
+	return ts, err
 }

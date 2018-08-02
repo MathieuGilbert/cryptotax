@@ -1,0 +1,106 @@
+{{define "report_viewer"}}
+<report-viewer inline-template id="rv">
+    <div>
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+
+        <div class="columns">
+            <div class="column is-narrow">
+                <div class="field is-horizontal">
+                    <div class="field-label">
+                        <label class="label">Type:</label>
+                    </div>
+                    <div class="field-body">
+                        <div class="field">
+                            <div class="control">
+                                <div class="radio">
+                                    <input id="holdings" type="radio" name="report" value="Holdings" v-model="report.type" checked="checked">
+                                    <label for="holdings" class="label is-small">Holdings</label>
+                                </div>
+                                <br>
+                                <div class="radio">
+                                    <input id="acb" type="radio" name="report" value="ACB" v-model="report.type">
+                                    <label for="acb" class="label is-small">ACB</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="column is-narrow">
+                <div class="field is-horizontal">
+                    <div class="field-label">
+                        <label class="label">Currency:</label>
+                    </div>
+                    <div class="field-body">
+                        <div class="field">
+                            <div class="control">
+                                <div class="select">
+                                    <select name="currency" v-model="report.currency">
+                                        <option disabled value="">Select</option>
+                                        <option value="CAD">CAD</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="column is-narrow">
+                <div class="field is-horizontal">
+                    <div class="field-label">
+                        <label class="label">As of:</label>
+                    </div>
+                    <div class="field-body">
+                        <div class="field">
+                            <div class="control">
+                                <div class="select">
+                                    <select name="currency" v-model="report.asOf">
+                                        <option disabled value="">Select</option>
+                                        <option value="Today">Today</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="column">
+                <p class="help is-danger"></p>
+            </div>
+        </div>
+        <div v-if="items.length">
+            <hr>
+            <table class="table is-fullwidth">
+                <thead>
+                    <tr>
+                        <th>Asset</th>
+                        <th>Amount</th>
+                        <th>ACB</th>
+                        <th>Value</th>
+                        <th>Gain</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="item in items">
+                        <td>
+                            <span class="is-size-6">${item.asset}</span>
+                        </td>
+                        <td>
+                            <span class="is-size-6">${item.amount}</span>
+                        </td>
+                        <td>
+                            <span class="is-size-6">${item.acb}</span>
+                        </td>
+                        <td>
+                            <span class="is-size-6">${item.value}</span>
+                        </td>
+                        <td>
+                            <span class="is-size-6">${item.gain}</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</report-viewer>
+{{end}}

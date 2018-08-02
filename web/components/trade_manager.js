@@ -58,8 +58,8 @@ new Vue({
 });
 
 function resetTrade(t) {
+    // update the attributes instead of overwriting, to remain vue-bound
     var n = newTrade();
-
     Object.keys(n).forEach(function(key, i) {
         t[key] = n[key];
     });

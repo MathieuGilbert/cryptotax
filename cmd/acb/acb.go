@@ -59,38 +59,38 @@ func Calculate(trades []*models.Trade, currency string) ([]*ACB, error) {
 
 	for _, t := range trades {
 		if t.Action == "buy" {
-			cost[t.Asset] = cost[t.Asset].Add(t.BasePrice).Add(t.BaseFee)
-			bal[t.Asset] = bal[t.Asset].Add(t.Quantity)
+			cost[t.Currency] = cost[t.Currency].Add(t.BaseAmount).Add(t.FeeAmount)
+			bal[t.Currency] = bal[t.Currency].Add(t.Amount)
 
 			a := &ACB{
-				Asset:        t.Asset,
+				Asset:        t.Currency,
 				Action:       t.Action,
-				Quantity:     t.Quantity,
+				Quantity:     t.Amount,
 				YearAcquired: t.Date.Year(),
-				CostBase:     cost[t.Asset],
-				CoinBalance:  bal[t.Asset],
+				CostBase:     cost[t.Currency],
+				CoinBalance:  bal[t.Currency],
 			}
 			acb = append(acb, a)
 		} else {
-			nb := bal[t.Asset].Sub(t.Quantity)
+			nb := bal[t.Currency].Sub(t.Amount)
 			if nb.IsNegative() {
-				oversold[t.Asset] = oversold[t.Asset].Sub(nb)
+				oversold[t.Currency] = oversold[t.Currency].Sub(nb)
 				continue
 			}
 
-			cost[t.Asset] = cost[t.Asset].Div(bal[t.Asset]).Mul(nb)
-			bal[t.Asset] = nb
+			cost[t.Currency] = cost[t.Currency].Div(bal[t.Currency]).Mul(nb)
+			bal[t.Currency] = nb
 
 			a := &ACB{
-				Asset:               t.Asset,
+				Asset:               t.Currency,
 				Action:              t.Action,
-				Quantity:            t.Quantity,
+				Quantity:            t.Amount,
 				YearAcquired:        t.Date.Year(),
-				Proceeds:            t.BasePrice,
-				CostBase:            cost[t.Asset],
-				DispositionExpenses: t.BaseFee,
-				CoinBalance:         bal[t.Asset],
-				NetIncome:           t.BasePrice.Sub(cost[t.Asset]).Sub(t.BaseFee),
+				Proceeds:            t.BaseAmount,
+				CostBase:            cost[t.Currency],
+				DispositionExpenses: t.FeeAmount,
+				CoinBalance:         bal[t.Currency],
+				NetIncome:           t.BaseAmount.Sub(cost[t.Currency]).Sub(t.FeeAmount),
 			}
 			acb = append(acb, a)
 		}
@@ -106,10 +106,10 @@ func Calculate(trades []*models.Trade, currency string) ([]*ACB, error) {
 // SortAssetDate sorts the trades by Asset then by Date
 func SortAssetDate(ts []*models.Trade) error {
 	sort.Slice(ts, func(i, j int) bool {
-		if a := ts[i].Asset < ts[j].Asset; a {
+		if a := ts[i].Currency < ts[j].Currency; a {
 			return true
 		}
-		if a := ts[i].Asset > ts[j].Asset; a {
+		if a := ts[i].Currency > ts[j].Currency; a {
 			return false
 		}
 
@@ -127,8 +127,8 @@ func ToBaseCurrency(ts []*models.Trade, base string) ([]*models.Trade, error) {
 	for _, t := range ts {
 		if t.BaseCurrency != base {
 			// get amounts in base currency
-			val := t.BasePrice
-			fee := t.BaseFee
+			val := t.BaseAmount
+			fee := t.FeeAmount
 			r, err := exchange.FetchRate(t.BaseCurrency, base, t.Date)
 			if err != nil {
 				return nil, err
@@ -146,16 +146,16 @@ func ToBaseCurrency(ts []*models.Trade, base string) ([]*models.Trade, error) {
 			// build second trade, fee applied to first
 			extras = append(extras, &models.Trade{
 				Date:         t.Date,
-				Asset:        t.BaseCurrency,
+				Currency:     t.BaseCurrency,
 				Action:       act,
-				Quantity:     t.BasePrice,
+				Amount:       t.BaseAmount,
 				BaseCurrency: base,
-				BasePrice:    val,
+				BaseAmount:   val,
 			})
 
 			// update first trade values
-			t.BasePrice = val
-			t.BaseFee = fee
+			t.BaseAmount = val
+			t.FeeAmount = fee
 			t.BaseCurrency = base
 		}
 	}

@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 )
 
@@ -30,4 +31,16 @@ func Read(fileName string) (*Configuration, error) {
 	}
 
 	return c, nil
+}
+
+// DBString formats the values to be used when connecting to the db
+func (c Configuration) DBString() string {
+	return fmt.Sprintf("host=%v port=%v user=%v dbname=%v password=%v sslmode=%v",
+		c.Database.Host,
+		c.Database.Port,
+		c.Database.User,
+		c.Database.DBName,
+		c.Database.Password,
+		c.Database.SSLMode,
+	)
 }

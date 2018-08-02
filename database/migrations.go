@@ -12,9 +12,8 @@ import (
 )
 
 // Migrate models with gorm
-func Migrate() {
-	// TODO: use the config
-	db, err := gorm.Open("postgres", "host=localhost port=5432 user=cryptotax dbname=cryptotax_dev password=password!@# sslmode=disable")
+func Migrate(s string) {
+	db, err := gorm.Open("postgres", s)
 	if err != nil {
 		panic(fmt.Errorf("failed to connect database: %v", err))
 	}

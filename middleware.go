@@ -10,6 +10,7 @@ import (
 
 // Wrap httprouter's method signature, putting extra param into context.
 // Access params with: ps, ok := r.Context().Value("params").(httprouter.Params)
+// https://github.com/julienschmidt/httprouter/issues/198
 func (env *Env) wrapHandler(h http.HandlerFunc) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		type contextKey string

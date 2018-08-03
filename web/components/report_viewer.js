@@ -2,7 +2,8 @@ Vue.component('report-viewer', {
     data() {
         return {
             report: app.report,
-            items: app.reportItems
+            items: app.reportItems,
+            rates: app.rates
         }
     },
     methods: {
@@ -10,9 +11,6 @@ Vue.component('report-viewer', {
             switch ($(e.currentTarget).val()) {
             case "CAD":
                 this.report.locale = "en-CA";
-                break;
-            case "USD":
-                this.report.locale = "en-US";
                 break;
             }
         },
@@ -40,7 +38,7 @@ Vue.component('report-viewer', {
                     loadReport(report);
                 }
             },
-            deep: true,
+            deep: true
         }
     }
 });
@@ -67,10 +65,28 @@ function loadReport(report) {
     }).done(function(data) {
         if (data.error.length) {
             setError(data.error); // TODO: make this work with vue data
-        } else {
-            for (var i = 0; i < data.items.length; i++) {
-                app.reportItems.push(data.items[i]);
-            }
+            return;
+        }
+
+        var ts = Date.now();
+
+        for (var i = 0; i < data.items.length; i++) {
+            // need to make a copy, "var" doesn't work with the loop+closure
+            let item = data.items[i];
+
+            getRate(item.asset, app.report.currency, ts).then((rate) => {
+                var amount = Number(item.amount)
+                var value = amount * rate;
+                var gain = value / amount - 1;
+
+                app.reportItems.push({
+                    asset: item.asset,
+                    amount: amount,
+                    acb: item.acb,
+                    value: value,
+                    gain: gain
+                });
+            });
         }
     }).fail(function(xhr, status, error) {
         console.log("Error loading report");

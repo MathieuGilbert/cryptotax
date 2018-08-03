@@ -1,14 +1,17 @@
-if (typeof app === "undefined" || app === null) app = {};
-app.files = [];
-app.trades = [];
-app.newTrade = newTrade();
-app.report = {
-    type: "Holdings",
-    currency: "",
-    locale: navigator.language,
-    asOf: ""
+if (typeof app === "undefined" || app === null) app = {
+    files: [],
+    trades: [],
+    newTrade: newTrade(),
+    report: {
+        type: "Holdings",
+        currency: "",
+        locale: navigator.language,
+        asOf: ""
+    },
+    reportItems: [],
+    rates: [],
 };
-app.reportItems = [];
+
 
 $(document).ready(function() {
     // Bulma hamburger nav
@@ -61,4 +64,41 @@ function formatDateLong(date) {
 
 function zeroPad(s) {
     return ("00" + s).slice(-2);
+}
+
+async function getRate(from, to, ts) {
+    var rate = cachedRate(from, to, ts);
+    if (rate > -1) {
+        return rate;
+    }
+
+    var url = "https://min-api.cryptocompare.com/data/dayAvg?fsym=" + from + "&tsym=" + to + "&toTs=" + ts + "&extraParams=cryptotax";
+
+    await $.ajax({
+        url: url,
+        type: 'GET',
+        cache: false,
+        contentType: false,
+        processData: false,
+        timeout: 5000
+    }).done(function(data) {
+        if (data["Response"] !== "Error") {
+            rate = data[to];
+            app.rates.push({from: from, to: to, ts: ts, rate: rate});
+        }
+    }).fail(function(e) {
+        console.log('failure: ' + e);
+    });
+
+    return rate;
+}
+
+function cachedRate(from, to, ts) {
+    for (var i = 0; i < app.rates.length; i++) {
+        var r = app.rates[i];
+        if (r.from === from && r.to === to && r.ts === ts) {
+            return r.rate;
+        }
+    }
+    return -1;
 }

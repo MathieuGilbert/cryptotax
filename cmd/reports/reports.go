@@ -2,41 +2,30 @@ package reports
 
 import (
 	"bytes"
-	"errors"
 	"time"
 
 	"github.com/mathieugilbert/cryptotax/models"
 	"github.com/shopspring/decimal"
 )
 
-type Holdings struct {
-	Currency string
-	Items    []*HoldingItem
+// Oversold error indicates there were more sold than bought for an asset
+type Oversold struct {
+	Details map[string]decimal.Decimal
 }
 
-type HoldingItem struct {
-	Asset  string
-	Amount decimal.Decimal
-	ACB    decimal.Decimal
-	Value  decimal.Decimal
-	Gain   decimal.Decimal
-}
+func (e *Oversold) Error() string {
+	var buf bytes.Buffer
+	buf.WriteString("Missing buy trades for:")
 
-type ACB struct {
-	Currency string
-	AsOf     time.Time
-	Items    []*ACBItem
-}
-
-type ACBItem struct {
-	Asset     string
-	Acquired  int
-	Amount    decimal.Decimal
-	Proceeds  decimal.Decimal
-	ACB       decimal.Decimal
-	Expenses  decimal.Decimal
-	NetIncome decimal.Decimal
-	Gain      decimal.Decimal
+	for asset, amount := range e.Details {
+		buf.WriteString(" ")
+		buf.WriteString(asset)
+		buf.WriteString(" (")
+		buf.WriteString(amount.StringScaled(-10))
+		buf.WriteString("),")
+	}
+	s := buf.String()
+	return s[:len(s)-1]
 }
 
 type Convert func(amount decimal.Decimal, from, to string, on time.Time) (decimal.Decimal, error)
@@ -161,62 +150,4 @@ func tally(ts []*models.Trade) (map[string]decimal.Decimal, map[string]decimal.D
 		return nil, nil, &Oversold{oversold}
 	}
 	return cost, bal, nil
-}
-
-// Oversold error indicates there were more sold than bought for an asset
-type Oversold struct {
-	Details map[string]decimal.Decimal
-}
-
-func (e *Oversold) Error() string {
-	var buf bytes.Buffer
-	buf.WriteString("Missing buy trades for:")
-
-	for asset, amount := range e.Details {
-		buf.WriteString(" ")
-		buf.WriteString(asset)
-		buf.WriteString(" (")
-		buf.WriteString(amount.StringScaled(-10))
-		buf.WriteString("),")
-	}
-	s := buf.String()
-	return s[:len(s)-1]
-}
-
-func (r *Holdings) Build(ts []*models.Trade, convert Convert) error {
-	if r.Currency == "" {
-		return errors.New("Invalid currency")
-	}
-
-	trades, err := expandAgainstBase(ts, r.Currency, convert)
-	if err != nil {
-		return err
-	}
-
-	cost, bal, err := tally(trades)
-	if err != nil {
-		return err
-	}
-
-	for curr := range cost {
-		val, err := convert(bal[curr], curr, r.Currency, time.Now())
-		if err != nil {
-			return err
-		}
-		gain := val.Div(cost[curr]).Sub(decimal.NewFromFloat(1))
-
-		r.Items = append(r.Items, &HoldingItem{
-			Asset:  curr,
-			Amount: bal[curr],
-			ACB:    cost[curr],
-			Value:  val,
-			Gain:   gain,
-		})
-	}
-
-	return nil
-}
-
-func (r ACB) Build() (string, time.Time) {
-	return r.Currency, r.AsOf
 }

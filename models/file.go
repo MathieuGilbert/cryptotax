@@ -34,7 +34,7 @@ func (db *DB) GetFile(id uint) (*File, error) {
 // GetFiles returns a user's files
 func (db *DB) GetFiles(uid uint) ([]*File, error) {
 	var fs []*File
-	err := db.Select("id, created_at, name, source").Where(&File{UserID: uid}).Find(&fs).Error
+	err := db.Select("id, created_at, name, source").Where(&File{UserID: uid}).Order("created_at asc").Find(&fs).Error
 	return fs, err
 }
 

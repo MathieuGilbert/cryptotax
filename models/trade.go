@@ -57,13 +57,13 @@ func (db *DB) GetFileTrades(fid uint, uid uint) ([]*Trade, error) {
 		return nil, err
 	}
 	var ts []*Trade
-	err := db.Where(&Trade{FileID: fid}).Find(&ts).Error
+	err := db.Where(&Trade{FileID: fid}).Order("date asc").Find(&ts).Error
 	return ts, err
 }
 
 // GetManualTrades returns the trades for the user ID with no associated File
 func (db *DB) GetManualTrades(uid uint) (trades []*Trade, err error) {
-	err = db.Raw("SELECT * FROM trades WHERE user_id=? AND file_id IS NULL", uid).Scan(&trades).Error
+	err = db.Raw("SELECT * FROM trades WHERE user_id=? AND file_id IS NULL ORDER BY date asc", uid).Scan(&trades).Error
 	return
 }
 
@@ -79,6 +79,6 @@ func (db *DB) DeleteTrade(id uint, uid uint) error {
 
 // GetUserTrades retrieves all trades by user id
 func (db *DB) GetUserTrades(id uint) (ts []*Trade, err error) {
-	err = db.Where(&Trade{UserID: id}).Find(&ts).Error
+	err = db.Where(&Trade{UserID: id}).Order("date asc").Find(&ts).Error
 	return ts, err
 }

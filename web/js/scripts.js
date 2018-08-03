@@ -72,6 +72,8 @@ async function getRate(from, to, ts) {
         return rate;
     }
 
+    // can look up multiple values with this endpoint (numbers are a bit different):
+    // https://min-api.cryptocompare.com/data/pricehistorical?fsym=CAD&tsyms=ETH,BTC,NEO&ts=1533330292&extraParams=cryptotax&calculationType=MidHighLow
     var url = "https://min-api.cryptocompare.com/data/dayAvg?fsym=" + from + "&tsym=" + to + "&toTs=" + ts + "&extraParams=cryptotax";
 
     await $.ajax({

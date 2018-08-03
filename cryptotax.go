@@ -92,27 +92,27 @@ func main() {
 	// add router endpoints and handlers
 	router := httprouter.New()
 
-	router.GET("/", env.getRoot)
+	router.GET("/", env.wrapHandler(env.requireSession(env.getRoot)))
 
-	router.GET("/register", env.getRegister)
-	router.POST("/register", env.postRegister)
-	router.GET("/verify", env.getVerify)
+	router.GET("/register", env.wrapHandler(env.requireSession(env.notLoggedIn(env.getRegister))))
+	router.POST("/register", env.wrapHandler(env.requireSession(env.notLoggedIn(env.postRegister))))
+	router.GET("/verify", env.wrapHandler(env.getVerify))
 
-	router.GET("/login", env.getLogin)
-	router.POST("/login", env.postLogin)
-	router.GET("/logout", env.getLogout)
+	router.GET("/login", env.wrapHandler(env.requireSession(env.notLoggedIn(env.getLogin))))
+	router.POST("/login", env.wrapHandler(env.requireSession(env.notLoggedIn(env.postLogin))))
+	router.GET("/logout", env.wrapHandler(env.getLogout))
 
-	router.GET("/files", env.getFiles)
-	router.POST("/upload", env.postUploadAsync)
-	router.DELETE("/file", env.deleteFileAsync)
-	router.GET("/filetrades", env.getFileTradesAsync)
+	router.GET("/files", env.wrapHandler(env.loggedInOnly(env.getFiles)))
+	router.POST("/upload", env.wrapHandler(env.loggedInOnly(env.postUploadAsync)))
+	router.DELETE("/file", env.wrapHandler(env.loggedInOnly(env.deleteFileAsync)))
+	router.GET("/filetrades", env.wrapHandler(env.loggedInOnly(env.getFileTradesAsync)))
 
-	router.GET("/trades", env.getTrades)
-	router.POST("/trade", env.postTradeAsync)
-	router.DELETE("/trade", env.deleteTradeAsync)
+	router.GET("/trades", env.wrapHandler(env.loggedInOnly(env.getTrades)))
+	router.POST("/trade", env.wrapHandler(env.loggedInOnly(env.postTradeAsync)))
+	router.DELETE("/trade", env.wrapHandler(env.loggedInOnly(env.deleteTradeAsync)))
 
-	router.GET("/reports", env.getReports)
-	router.GET("/report", env.getReportAsync)
+	router.GET("/reports", env.wrapHandler(env.loggedInOnly(env.getReports)))
+	router.GET("/report", env.wrapHandler(env.loggedInOnly(env.getReportAsync)))
 
 	// serve static files
 	router.ServeFiles("/web/js/*filepath", http.Dir("web/js"))
@@ -146,7 +146,7 @@ func initDB() (*models.DB, error) {
 }
 
 /*
-func (env *Env) downloadTrades(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+func (env *Env) downloadTrades(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	// requires active session
 	s, err := env.session(r)
 	if err != nil {

@@ -18,7 +18,6 @@ import (
 
 	"github.com/go-mail/mail"
 	"github.com/goware/emailx"
-	"github.com/julienschmidt/httprouter"
 	"github.com/lib/pq"
 	"github.com/mathieugilbert/cryptotax/cmd/parsers"
 	"github.com/mathieugilbert/cryptotax/cmd/reports"
@@ -26,93 +25,39 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-func (env *Env) getRoot(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	// check for existing session user
-	u, _ := env.currentUser(r)
-	if u == nil {
-		// no session user, make new session
-		if _, err := env.setSessionCookie(w, nil); err != nil {
-			log.Printf("%+v", err)
-			http.Error(w, "Unable to set cookie", http.StatusInternalServerError)
-			return
-		}
-	}
-
-	// build page
-	t := template.Must(template.ParseFiles(append(TemplateFiles, "web/templates/root.html.tmpl")...))
-
-	// define template data
-	type Data struct {
-		Name string
-	}
+func (env *Env) getRoot(w http.ResponseWriter, r *http.Request) {
+	s, _ := env.session(r)
 
 	pr := &Presenter{
-		LoggedIn: u != nil,
+		LoggedIn: s.UserID != 0,
 	}
 
+	t := pageTemplate("web/templates/root.html.tmpl")
 	t.Execute(w, pr)
 }
 
-func (env *Env) getRegister(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	// check for existing session
+func (env *Env) getRegister(w http.ResponseWriter, r *http.Request) {
 	s, _ := env.session(r)
-	if s == nil {
-		// make new session
-		ns, err := env.setSessionCookie(w, nil)
-		if err != nil {
-			log.Printf("%+v", err)
-			http.Error(w, "Unable to set cookie", http.StatusInternalServerError)
-			return
-		}
-		s.SessionID = ns.SessionID
-	}
 
-	// must not be logged in
-	if s.UserID != 0 {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
-	}
-
-	// build page
-	t, err := pageTemplate("web/templates/register.html.tmpl")
-	if err != nil {
-		log.Printf("%+v", err)
-		http.Error(w, "Template error", http.StatusInternalServerError)
-		return
-	}
-
-	// define template data
 	pr := &Presenter{
 		LoggedIn:  false,
 		CSRFToken: s.CSRFToken,
 		Form:      &Form{},
 	}
 
+	t := pageTemplate("web/templates/register.html.tmpl")
 	t.Execute(w, pr)
 }
 
-func (env *Env) postRegister(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	// page redering details
-	var file string
-	pr := &Presenter{LoggedIn: false}
-
-	// verify existing session
-	s, _ := env.session(r)
-	if s == nil {
-		http.Error(w, "Session expired", http.StatusBadRequest)
-		return
-	}
-	// must not be logged in
-	if s.UserID != 0 {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
-	}
-
+func (env *Env) postRegister(w http.ResponseWriter, r *http.Request) {
 	// get form fields
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Invalid form parameters", http.StatusBadRequest)
 		return
 	}
+
+	s, _ := env.session(r)
+
 	// verify CSRF token
 	if r.FormValue("csrf_token") != s.CSRFToken {
 		http.Error(w, "Invalid CSRF token", http.StatusBadRequest)
@@ -164,7 +109,7 @@ func (env *Env) postRegister(w http.ResponseWriter, r *http.Request, _ httproute
 
 		// build email
 		m := mail.NewMessage()
-		m.SetHeader("From", "cryptotax@example.com")
+		m.SetHeader("From", "cryptotax@example.com") // TODO: from config
 		m.SetHeader("To", u.Email)
 		m.SetHeader("Subject", "Cryptotax registration verification")
 		m.SetBody("text/html", buf.String())
@@ -179,6 +124,9 @@ func (env *Env) postRegister(w http.ResponseWriter, r *http.Request, _ httproute
 		}
 	}
 
+	var file string
+	pr := &Presenter{LoggedIn: false}
+
 	if f.Success {
 		file = "web/templates/register_success.html.tmpl"
 		pr.Data = struct{ Email string }{Email: e}
@@ -189,94 +137,47 @@ func (env *Env) postRegister(w http.ResponseWriter, r *http.Request, _ httproute
 		pr.Form = f
 	}
 
-	t, err := pageTemplate(file)
-	if err != nil {
-		log.Printf("%+v", err)
-		http.Error(w, "Template error", http.StatusInternalServerError)
-		return
-	}
-
+	t := pageTemplate(file)
 	t.Execute(w, pr)
 }
 
-func (env *Env) getVerify(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	// build page
-	t, err := pageTemplate("web/templates/verify.html.tmpl")
-	if err != nil {
-		log.Printf("%+v", err)
-		http.Error(w, "Template error", http.StatusInternalServerError)
-		return
-	}
-
-	// define template data
+func (env *Env) getVerify(w http.ResponseWriter, r *http.Request) {
 	pr := &Presenter{
 		LoggedIn: false,
 	}
 
 	// get token from query string
 	token := r.URL.Query().Get("t")
+
 	// attempt to verify the token
 	ok := env.db.VerifyEmail(token)
 	pr.Data = struct{ Confirmed bool }{Confirmed: ok}
 
+	t := pageTemplate("web/templates/verify.html.tmpl")
 	t.Execute(w, pr)
 }
 
-func (env *Env) getLogin(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	// redirect if already logged in
+func (env *Env) getLogin(w http.ResponseWriter, r *http.Request) {
 	s, _ := env.session(r)
-	if s == nil {
-		// make new session
-		ns, err := env.setSessionCookie(w, nil)
-		if err != nil {
-			log.Printf("%+v", err)
-			http.Error(w, "Unable to set cookie", http.StatusInternalServerError)
-			return
-		}
-		s = ns
-	}
 
-	// must not be logged in
-	if s.UserID != 0 {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
-	}
-
-	// build page
-	t, err := pageTemplate("web/templates/login.html.tmpl")
-	if err != nil {
-		log.Printf("%+v", err)
-		http.Error(w, "Template error", http.StatusInternalServerError)
-		return
-	}
-
-	// define template data
 	pr := &Presenter{
 		LoggedIn:  false,
 		CSRFToken: s.CSRFToken,
 	}
 
+	t := pageTemplate("web/templates/login.html.tmpl")
 	t.Execute(w, pr)
 }
 
-func (env *Env) postLogin(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	// verify existing session
-	s, _ := env.session(r)
-	if s == nil {
-		http.Error(w, "Session expired", http.StatusBadRequest)
-		return
-	}
-	// must not be logged in
-	if s.UserID != 0 {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
-	}
-
+func (env *Env) postLogin(w http.ResponseWriter, r *http.Request) {
 	// get form fields
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Invalid form parameters", http.StatusBadRequest)
 		return
 	}
+
+	s, _ := env.session(r)
+
 	// verify CSRF token
 	if r.FormValue("csrf_token") != s.CSRFToken {
 		http.Error(w, "Invalid CSRF token", http.StatusBadRequest)
@@ -312,14 +213,7 @@ func (env *Env) postLogin(w http.ResponseWriter, r *http.Request, _ httprouter.P
 			Form:      f,
 		}
 
-		// build page
-		t, err := pageTemplate("web/templates/login.html.tmpl")
-		if err != nil {
-			log.Printf("%+v", err)
-			http.Error(w, "Template error", http.StatusInternalServerError)
-			return
-		}
-
+		t := pageTemplate("web/templates/login.html.tmpl")
 		t.Execute(w, pr)
 		return
 	}
@@ -334,7 +228,7 @@ func (env *Env) postLogin(w http.ResponseWriter, r *http.Request, _ httprouter.P
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-func (env *Env) getLogout(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (env *Env) getLogout(w http.ResponseWriter, r *http.Request) {
 	s, _ := env.session(r)
 
 	if s != nil && s.UserID != 0 {
@@ -344,29 +238,13 @@ func (env *Env) getLogout(w http.ResponseWriter, r *http.Request, _ httprouter.P
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-func (env *Env) getFiles(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	// requires active session and user
-	s, err := env.session(r)
-	if err != nil || s.UserID == 0 {
-		http.Error(w, "Expired session", http.StatusBadRequest)
-		return
-	}
+func (env *Env) getFiles(w http.ResponseWriter, r *http.Request) {
+	s, _ := env.session(r)
 
 	fs, err := env.db.GetFiles(s.UserID)
 	if err != nil {
 		log.Printf("Error getting user files: %v\n", err)
 		http.Error(w, "Error retrieving files", http.StatusInternalServerError)
-		return
-	}
-
-	// build page
-	t, err := pageTemplate(
-		"web/templates/manage_files.html.tmpl",
-		"web/templates/components/file_manager.html.tmpl",
-	)
-	if err != nil {
-		log.Printf("%+v", err)
-		http.Error(w, "Template error", http.StatusInternalServerError)
 		return
 	}
 
@@ -381,17 +259,15 @@ func (env *Env) getFiles(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 			Files:     fs,
 		},
 	}
+
+	t := pageTemplate(
+		"web/templates/manage_files.html.tmpl",
+		"web/templates/components/file_manager.html.tmpl",
+	)
 	t.Execute(w, pr)
 }
 
-func (env *Env) postUploadAsync(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	// requires active session and user
-	s, err := env.session(r)
-	if err != nil || s.UserID == 0 {
-		http.Error(w, "Expired session", http.StatusBadRequest)
-		return
-	}
-
+func (env *Env) postUploadAsync(w http.ResponseWriter, r *http.Request) {
 	// posted JSON structure
 	type Data struct {
 		FileBytes string
@@ -409,14 +285,14 @@ func (env *Env) postUploadAsync(w http.ResponseWriter, r *http.Request, _ httpro
 
 	// unmarshal json body into Data
 	var data Data
-	if err := json.Unmarshal(body, &data); err != nil {
+	if err = json.Unmarshal(body, &data); err != nil {
 		log.Printf("unmarshal error: %v\n", err)
 		http.Error(w, "Error during JSON unmarshal", http.StatusInternalServerError)
 		return
 	}
 
 	// verify CSRF token
-	if data.CSRFToken != s.CSRFToken {
+	if !env.validToken(r, data.CSRFToken) {
 		http.Error(w, "Invalid CSRF token", http.StatusBadRequest)
 		return
 	}
@@ -486,6 +362,8 @@ func (env *Env) postUploadAsync(w http.ResponseWriter, r *http.Request, _ httpro
 			return
 		}
 
+		s, _ := env.session(r)
+
 		// store the File
 		fs := &models.File{
 			Name:   fileName,
@@ -545,15 +423,10 @@ func (env *Env) postUploadAsync(w http.ResponseWriter, r *http.Request, _ httpro
 	json.NewEncoder(w).Encode(resp)
 }
 
-func (env *Env) deleteFileAsync(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	// requires active session and user
-	s, err := env.session(r)
-	if err != nil || s.UserID == 0 {
-		http.Error(w, "Expired session", http.StatusBadRequest)
-		return
-	}
-
+func (env *Env) deleteFileAsync(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
+	s, _ := env.session(r)
+
 	// verify CSRF token
 	if q.Get("csrf_token") != s.CSRFToken {
 		http.Error(w, "Invalid CSRF token", http.StatusBadRequest)
@@ -576,20 +449,15 @@ func (env *Env) deleteFileAsync(w http.ResponseWriter, r *http.Request, _ httpro
 	json.NewEncoder(w).Encode("")
 }
 
-func (env *Env) getFileTradesAsync(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	// requires active session and user
-	s, err := env.session(r)
-	if err != nil || s.UserID == 0 {
-		http.Error(w, "Expired session", http.StatusBadRequest)
-		return
-	}
-
+func (env *Env) getFileTradesAsync(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	fid, err := strconv.ParseUint(q.Get("id"), 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid file id", http.StatusBadRequest)
 		return
 	}
+
+	s, _ := env.session(r)
 
 	ts, err := env.db.GetFileTrades(uint(fid), s.UserID)
 	if err != nil {
@@ -607,29 +475,13 @@ func (env *Env) getFileTradesAsync(w http.ResponseWriter, r *http.Request, _ htt
 	json.NewEncoder(w).Encode(resp)
 }
 
-func (env *Env) getTrades(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	// requires active session and user
-	s, err := env.session(r)
-	if err != nil || s.UserID == 0 {
-		http.Error(w, "Expired session", http.StatusBadRequest)
-		return
-	}
+func (env *Env) getTrades(w http.ResponseWriter, r *http.Request) {
+	s, _ := env.session(r)
 
 	ts, err := env.db.GetManualTrades(s.UserID)
 	if err != nil {
 		log.Printf("Error getting user trades: %v\n", err)
 		http.Error(w, "Error retrieving files", http.StatusInternalServerError)
-		return
-	}
-
-	// build page
-	t, err := pageTemplate(
-		"web/templates/components/trade_manager.html.tmpl",
-		"web/templates/manage_trades.html.tmpl",
-	)
-	if err != nil {
-		log.Printf("%+v", err)
-		http.Error(w, "Template error", http.StatusInternalServerError)
 		return
 	}
 
@@ -643,17 +495,14 @@ func (env *Env) getTrades(w http.ResponseWriter, r *http.Request, _ httprouter.P
 		},
 	}
 
+	t := pageTemplate(
+		"web/templates/components/trade_manager.html.tmpl",
+		"web/templates/manage_trades.html.tmpl",
+	)
 	t.Execute(w, pr)
 }
 
-func (env *Env) postTradeAsync(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	// requires active session and user
-	s, err := env.session(r)
-	if err != nil || s.UserID == 0 {
-		http.Error(w, "Expired session", http.StatusBadRequest)
-		return
-	}
-
+func (env *Env) postTradeAsync(w http.ResponseWriter, r *http.Request) {
 	// posted JSON structure
 	type Trade struct {
 		Date         string
@@ -684,6 +533,8 @@ func (env *Env) postTradeAsync(w http.ResponseWriter, r *http.Request, _ httprou
 		http.Error(w, "Error during JSON unmarshal", http.StatusInternalServerError)
 		return
 	}
+
+	s, _ := env.session(r)
 
 	// verify CSRF token
 	if data.CSRFToken != s.CSRFToken {
@@ -757,15 +608,10 @@ func (env *Env) postTradeAsync(w http.ResponseWriter, r *http.Request, _ httprou
 	json.NewEncoder(w).Encode(resp)
 }
 
-func (env *Env) deleteTradeAsync(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	// requires active session and user
-	s, err := env.session(r)
-	if err != nil || s.UserID == 0 {
-		http.Error(w, "Expired session", http.StatusBadRequest)
-		return
-	}
-
+func (env *Env) deleteTradeAsync(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
+	s, _ := env.session(r)
+
 	// verify CSRF token
 	if q.Get("csrf_token") != s.CSRFToken {
 		http.Error(w, "Invalid CSRF token", http.StatusBadRequest)
@@ -789,42 +635,25 @@ func (env *Env) deleteTradeAsync(w http.ResponseWriter, r *http.Request, _ httpr
 	json.NewEncoder(w).Encode("")
 }
 
-func (env *Env) getReports(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	// requires active session and user
-	s, err := env.session(r)
-	if err != nil || s.UserID == 0 {
-		http.Error(w, "Expired session", http.StatusBadRequest)
-		return
-	}
-
-	// build page
-	t, err := pageTemplate(
-		"web/templates/reports.html.tmpl",
-		"web/templates/components/report_viewer.html.tmpl",
-	)
-	if err != nil {
-		log.Printf("%+v", err)
-		http.Error(w, "Template error", http.StatusInternalServerError)
-		return
-	}
+func (env *Env) getReports(w http.ResponseWriter, r *http.Request) {
+	s, _ := env.session(r)
 
 	pr := &Presenter{
 		LoggedIn:  true,
 		CSRFToken: s.CSRFToken,
 	}
 
+	t := pageTemplate(
+		"web/templates/reports.html.tmpl",
+		"web/templates/components/report_viewer.html.tmpl",
+	)
 	t.Execute(w, pr)
 }
 
-func (env *Env) getReportAsync(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	// requires active session and user
-	s, err := env.session(r)
-	if err != nil || s.UserID == 0 {
-		http.Error(w, "Expired session", http.StatusBadRequest)
-		return
-	}
-
+func (env *Env) getReportAsync(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
+	s, _ := env.session(r)
+
 	// verify CSRF token
 	if q.Get("csrf_token") != s.CSRFToken {
 		http.Error(w, "Invalid CSRF token", http.StatusBadRequest)

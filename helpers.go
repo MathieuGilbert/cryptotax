@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"html/template"
 	"net/http"
 	"path"
@@ -16,12 +17,12 @@ func (f *Form) fail(field, message string) {
 	f.Success = false
 }
 
-func pageTemplate(ts ...string) (*template.Template, error) {
+func pageTemplate(ts ...string) *template.Template {
 	f := TemplateFiles
 	for _, t := range ts {
 		f = append(f, t)
 	}
-	return template.New(path.Base(f[0])).Funcs(funcMaps()).ParseFiles(f...)
+	return template.Must(template.New(path.Base(f[0])).Funcs(funcMaps()).ParseFiles(f...))
 }
 
 func funcMaps() map[string]interface{} {
@@ -96,38 +97,35 @@ func (env *Env) setSessionCookie(w http.ResponseWriter, u *models.User) (*models
 
 // session reads sessionID from cookie and return that session from the database
 func (env *Env) session(r *http.Request) (*models.Session, error) {
-	cookies := r.Cookies()
 	cValue := ""
-	for _, c := range cookies {
+	for _, c := range r.Cookies() {
 		if c.Name == "cryptotax" && c.Value != "" {
 			cValue = c.Value
 		}
 	}
 	if cValue == "" {
-		return nil, nil
+		return nil, errors.New("unable to read cryptotax cookie")
 	}
-	s, err := env.db.Session(cValue)
-	if err != nil {
-		return nil, nil
-	}
-	return s, err
+
+	return env.db.Session(cValue)
 }
 
+// retrieve user from session
 func (env *Env) currentUser(r *http.Request) (*models.User, error) {
 	s, err := env.session(r)
 	if err != nil {
 		return nil, err
 	}
-	if s == nil || s.UserID == 0 {
-		return nil, nil
+	if s.UserID == 0 {
+		return nil, errors.New("user not logged in")
 	}
 
-	u, err := env.db.GetUser(s.UserID)
-	if err != nil {
-		return nil, err
-	}
+	return env.db.GetUser(s.UserID)
+}
 
-	return u, nil
+func (env *Env) validToken(r *http.Request, t string) bool {
+	s, _ := env.session(r)
+	return t == s.CSRFToken
 }
 
 func convert(amount decimal.Decimal, from, to string, on time.Time) (decimal.Decimal, error) {
@@ -135,5 +133,7 @@ func convert(amount decimal.Decimal, from, to string, on time.Time) (decimal.Dec
 		return amount, nil
 	}
 
-	return amount.Mul(decimal.NewFromFloat(2)), nil
+	rate := decimal.NewFromFloat(2)
+
+	return amount.Mul(rate), nil
 }

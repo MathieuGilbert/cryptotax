@@ -5,6 +5,7 @@ app.newTrade = newTrade();
 app.report = {
     type: "Holdings",
     currency: "",
+    locale: navigator.language,
     asOf: ""
 };
 app.reportItems = [];

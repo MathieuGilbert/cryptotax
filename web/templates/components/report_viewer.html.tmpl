@@ -35,7 +35,7 @@
                         <div class="field">
                             <div class="control">
                                 <div class="select">
-                                    <select name="currency" v-model="report.currency">
+                                    <select name="currency" v-model="report.currency" @change="setLocale">
                                         <option disabled value="">Select</option>
                                         <option value="CAD">CAD</option>
                                     </select>
@@ -89,13 +89,13 @@
                             <span class="is-size-6">${item.amount}</span>
                         </td>
                         <td>
-                            <span class="is-size-6">${item.acb}</span>
+                            <span class="is-size-6">${currency(item.acb)}</span>
                         </td>
                         <td>
-                            <span class="is-size-6">${item.value}</span>
+                            <span class="is-size-6">${currency(item.value)}</span>
                         </td>
                         <td>
-                            <span class="is-size-6">${item.gain}</span>
+                            <span class="is-size-6">${percent(item.gain)}</span>
                         </td>
                     </tr>
                 </tbody>

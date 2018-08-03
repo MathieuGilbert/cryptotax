@@ -6,7 +6,32 @@ Vue.component('report-viewer', {
         }
     },
     methods: {
+        setLocale: function(e) {
+            switch ($(e.currentTarget).val()) {
+            case "CAD":
+                this.report.locale = "en-CA";
+                break;
+            case "USD":
+                this.report.locale = "en-US";
+                break;
+            }
+        },
+        currency: function(val) {
+            var formatter = new Intl.NumberFormat(this.report.locale, {
+                style: 'currency',
+                currency: this.report.currency,
+            });
 
+            return formatter.format(val);
+        },
+        percent: function(val) {
+            var formatter = new Intl.NumberFormat(this.report.locale, {
+                style: 'percent',
+                minimumFractionDigits: 2,
+            });
+
+            return formatter.format(val);
+        }
     },
     watch: {
         report: {
@@ -41,7 +66,7 @@ function loadReport(report) {
         timeout: 5000
     }).done(function(data) {
         if (data.error.length) {
-            setError(data.error);
+            setError(data.error); // TODO: make this work with vue data
         } else {
             for (var i = 0; i < data.items.length; i++) {
                 app.reportItems.push(data.items[i]);

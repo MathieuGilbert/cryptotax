@@ -528,9 +528,9 @@ func (env *Env) postTradeAsync(w http.ResponseWriter, r *http.Request) {
 
 	// unmarshal json body into Data
 	var data Data
-	if err := json.Unmarshal(body, &data); err != nil {
+	if err = json.Unmarshal(body, &data); err != nil {
 		log.Printf("unmarshal error: %v\n", err)
-		http.Error(w, "Error during JSON unmarshal", http.StatusInternalServerError)
+		http.Error(w, "Error during JSON unmarshal", http.StatusBadRequest)
 		return
 	}
 
@@ -650,7 +650,7 @@ func (env *Env) getReports(w http.ResponseWriter, r *http.Request) {
 	t.Execute(w, pr)
 }
 
-func (env *Env) getReportAsync(w http.ResponseWriter, r *http.Request) {
+func (env *Env) getRateRequestAsync(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	s, _ := env.session(r)
 
@@ -679,8 +679,58 @@ func (env *Env) getReportAsync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rpt := &reports.Holdings{Currency: c}
+	ts, err := env.db.GetUserTrades(s.UserID)
+	if err != nil {
+		http.Error(w, "Error getting user trades", http.StatusInternalServerError)
+		return
+	}
 
+	// get rate requests
+	rr, _ := reports.Analyze(ts, c)
+
+	type Response struct {
+		Items []*reports.RateRequest `json:"items"`
+		Error string                 `json:"error"`
+	}
+	resp := &Response{Items: rr}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(resp)
+}
+
+func (env *Env) postReportAsync(w http.ResponseWriter, r *http.Request) {
+	// posted JSON structure
+	type Data struct {
+		Type      string                 `json:"type"` // to be used by ACB report
+		Currency  string                 `json:"currency"`
+		AsOf      string                 `json:"asof"` // to be used by ACB report
+		Rates     []*reports.RateRequest `json:"rates"`
+		CSRFToken string
+	}
+	// read request body
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Printf("Error reading request body: %v\n", err)
+		http.Error(w, "Error reading request", http.StatusInternalServerError)
+		return
+	}
+
+	// unmarshal json body into Data
+	var data Data
+	if err = json.Unmarshal(body, &data); err != nil {
+		log.Printf("unmarshal error: %v\n", err)
+		http.Error(w, "Error during JSON unmarshal", http.StatusBadRequest)
+		return
+	}
+
+	// verify CSRF token
+	if !env.validToken(r, data.CSRFToken) {
+		http.Error(w, "Invalid CSRF token", http.StatusBadRequest)
+		return
+	}
+
+	s, _ := env.session(r)
 	ts, err := env.db.GetUserTrades(s.UserID)
 	if err != nil {
 		http.Error(w, "Error getting user trades", http.StatusInternalServerError)
@@ -700,7 +750,8 @@ func (env *Env) getReportAsync(w http.ResponseWriter, r *http.Request) {
 	}
 	resp := &Response{}
 
-	err = rpt.Build(ts, convert)
+	rpt := &reports.Holdings{Currency: data.Currency}
+	err = rpt.Build(ts, rateConverter(data.Rates))
 	if err != nil {
 		switch err.(type) {
 		case *reports.Oversold:

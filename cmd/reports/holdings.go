@@ -21,12 +21,13 @@ type HoldingItem struct {
 	Gain   decimal.Decimal
 }
 
-func (r *Holdings) Build(ts []*models.Trade, convert Convert) error {
+// Build the report
+func (r *Holdings) Build(ts []*models.Trade, c Converter) error {
 	if r.Currency == "" {
 		return errors.New("Invalid currency")
 	}
 
-	trades, err := expandAgainstBase(ts, r.Currency, convert)
+	trades, err := expandAgainstBase(ts, r.Currency, c)
 	if err != nil {
 		return err
 	}
@@ -37,10 +38,7 @@ func (r *Holdings) Build(ts []*models.Trade, convert Convert) error {
 	}
 
 	for curr := range cost {
-		val, err := convert(bal[curr], curr, r.Currency, time.Now())
-		if err != nil {
-			return err
-		}
+		val := c.Convert(bal[curr], curr, r.Currency, time.Now())
 		gain := val.Div(cost[curr]).Sub(decimal.NewFromFloat(1))
 
 		r.Items = append(r.Items, &HoldingItem{

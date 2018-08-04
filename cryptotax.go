@@ -112,7 +112,8 @@ func main() {
 	router.DELETE("/trade", env.wrapHandler(env.loggedInOnly(env.deleteTradeAsync)))
 
 	router.GET("/reports", env.wrapHandler(env.loggedInOnly(env.getReports)))
-	router.GET("/report", env.wrapHandler(env.loggedInOnly(env.getReportAsync)))
+	router.GET("/rateRequest", env.wrapHandler(env.loggedInOnly(env.getRateRequestAsync)))
+	router.POST("/report", env.wrapHandler(env.loggedInOnly(env.postReportAsync)))
 
 	// serve static files
 	router.ServeFiles("/web/js/*filepath", http.Dir("web/js"))

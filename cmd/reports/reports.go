@@ -29,9 +29,6 @@ func (e *Oversold) Error() string {
 	return s[:len(s)-1]
 }
 
-// Convert function defining how to perform conversion
-type Convert func(amount decimal.Decimal, from, to string, on time.Time) (decimal.Decimal, error)
-
 // Trades are sortable by date
 type byDate []*models.Trade
 
@@ -48,19 +45,66 @@ func (t byDate) Less(i, j int) bool {
 	return t[i].Date.Before(t[j].Date)
 }
 
+// Converter currency conversion function
+type Converter struct {
+	Convert func(amount decimal.Decimal, from, to string, on time.Time) decimal.Decimal
+}
+
+// RateRequest has a list of currencies to get a quote for at the timestamp
+type RateRequest struct {
+	Timestamp int64   `json:"timestamp"`
+	Rates     []*Rate `json:"rates"`
+}
+
+// Rate pairs a currency and its rate
+type Rate struct {
+	Currency string `json:"currency"`
+	Rate     string `json:"rate"`
+}
+
 // add extra trades so all are against base currency
 func expandAgainstBase(ts []*models.Trade, base string, convert Convert) (rts []*models.Trade, err error) {
 	sort.Sort(byDate(ts))
 
 	for _, t := range ts {
-		fa, err := convert(t.FeeAmount, t.FeeCurrency, base, t.Date)
-		if err != nil {
-			return nil, err
+		if t.BaseCurrency != base {
+			d := t.Date.Unix()
+			if !includes(rmap[d], t.BaseCurrency) {
+				rmap[d] = append(rmap[d], &Rate{Currency: t.BaseCurrency})
+			}
 		}
-		ba, err := convert(t.BaseAmount, t.BaseCurrency, base, t.Date)
-		if err != nil {
-			return nil, err
+		if t.FeeCurrency != base {
+			d := t.Date.Unix()
+			if !includes(rmap[d], t.FeeCurrency) {
+				rmap[d] = append(rmap[d], &Rate{Currency: t.FeeCurrency})
+			}
 		}
+	}
+
+	for ts, rs := range rmap {
+		rrs = append(rrs, &RateRequest{
+			Timestamp: ts,
+			Rates:     rs,
+		})
+	}
+
+	return
+}
+
+func includes(rs []*Rate, c string) bool {
+	for _, r := range rs {
+		if r.Currency == c {
+			return true
+		}
+	}
+	return false
+}
+
+// add extra trades so all are against base currency
+func expandAgainstBase(ts []*models.Trade, base string, c Converter) (rts []*models.Trade, err error) {
+	for _, t := range ts {
+		fa := c.Convert(t.FeeAmount, t.FeeCurrency, base, t.Date)
+		ba := c.Convert(t.BaseAmount, t.BaseCurrency, base, t.Date)
 
 		if t.Action == "BUY" {
 			rts = append(rts, &models.Trade{

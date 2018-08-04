@@ -58,22 +58,24 @@ var trades = []*models.Trade{
 	// BBB: bal = 30, cost = 66.00
 }
 
-func convert(amount decimal.Decimal, from, to string, on time.Time) (decimal.Decimal, error) {
-	if from == to {
-		return amount, nil
-	}
+var c = Converter{
+	Convert: func(amount decimal.Decimal, from, to string, on time.Time) decimal.Decimal {
+		if from == to {
+			return amount
+		}
 
-	return amount.Mul(decimal.NewFromFloat(2)), nil
+		return amount.Mul(decimal.NewFromFloat(2))
+	},
 }
 
 func TestBuildHoldings(t *testing.T) {
 	r := &Holdings{}
-	if err := r.Build(trades, convert); err == nil {
+	if err := r.Build(trades, c); err == nil {
 		t.Errorf("Should require currency set.")
 	}
 
 	r.Currency = "CAD"
-	if err := r.Build(trades, convert); err != nil {
+	if err := r.Build(trades, c); err != nil {
 		t.Errorf("Should build correctly.")
 	}
 

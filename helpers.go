@@ -7,6 +7,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/mathieugilbert/cryptotax/cmd/reports"
 	"github.com/mathieugilbert/cryptotax/models"
 	"github.com/shopspring/decimal"
 )
@@ -128,12 +129,29 @@ func (env *Env) validToken(r *http.Request, t string) bool {
 	return t == s.CSRFToken
 }
 
-func convert(amount decimal.Decimal, from, to string, on time.Time) (decimal.Decimal, error) {
-	if from == to {
-		return amount, nil
+func rateConverter(rates []*reports.RateRequest) reports.Converter {
+	return reports.Converter{
+		Convert: func(amount decimal.Decimal, from, to string, date time.Time) decimal.Decimal {
+			if from == to {
+				return amount
+			}
+
+			for _, rs := range rates {
+				if rs.Timestamp == date.Unix() {
+					for _, r := range rs.Rates {
+						if r.Currency == to {
+							rate, err := decimal.NewFromString(r.Rate)
+							if err != nil || rate.IsZero() {
+								return decimal.NewFromFloat(0)
+							}
+
+							return amount.Mul(rate)
+						}
+					}
+				}
+			}
+
+			return decimal.NewFromFloat(0)
+		},
 	}
-
-	rate := decimal.NewFromFloat(2)
-
-	return amount.Mul(rate), nil
 }

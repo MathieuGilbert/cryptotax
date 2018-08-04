@@ -66,14 +66,38 @@ function zeroPad(s) {
     return ("00" + s).slice(-2);
 }
 
+async function getLiveRates(from, tos, resolve, reject) {
+    var rates = [];
+    var url = "https://min-api.cryptocompare.com/data/price?fsym=" + from + "&tsyms=" + tos.join() + "&extraParams=cryptotax";
+
+    await $.ajax({
+        url: url,
+        type: 'GET',
+        cache: false,
+        contentType: false,
+        processData: false,
+        timeout: 5000
+    }).done(function(data) {
+        if (data["Response"] !== "Error") {
+            Object.keys(resp).forEach(function(c) {
+                rates.push({"currency" : c, "rate" : resp[c]});
+            });
+        } else {
+            return reject(JSON.stringify(data));
+        }
+        return resolve(rates);
+    }).fail(function(xhr, status, error) {
+        return reject(error);
+    });
+}
+
 async function getRate(from, to, ts) {
+    // return from cache
     var rate = cachedRate(from, to, ts);
     if (rate > -1) {
         return rate;
     }
 
-    // can look up multiple values with this endpoint (numbers are a bit different):
-    // https://min-api.cryptocompare.com/data/pricehistorical?fsym=CAD&tsyms=ETH,BTC,NEO&ts=1533330292&extraParams=cryptotax&calculationType=MidHighLow
     var url = "https://min-api.cryptocompare.com/data/dayAvg?fsym=" + from + "&tsym=" + to + "&toTs=" + ts + "&extraParams=cryptotax";
 
     await $.ajax({
@@ -86,19 +110,98 @@ async function getRate(from, to, ts) {
     }).done(function(data) {
         if (data["Response"] !== "Error") {
             rate = data[to];
-            app.rates.push({from: from, to: to, ts: ts, rate: rate});
+            addRate(from, to, ts, rate);
         }
-    }).fail(function(e) {
-        console.log('failure: ' + e);
+    }).fail(function(xhr, status, error) {
+        console.log('failure: ' + error);
     });
 
     return rate;
 }
 
+function getRates(base, rates, ts, resolve, reject) {
+    // currencies to look up
+    var currs = rates.map(function(rate) {
+        // check cache
+        var r = cachedRate(base, rate.currency, ts);
+        if (r > -1) {
+            // set value from cache
+            rate.rate = r;
+            return;
+        }
+        // not cached, include it
+        return rate.currency;
+    });
+
+    if (currs.length === 0) {
+        return resolve(rates);
+    }
+
+    var url = "https://min-api.cryptocompare.com/data/pricehistorical?fsym=" + base + "&tsyms=" + currs.join() + "&ts=" + ts + "&extraParams=cryptotax&calculationType=MidHighLow"
+
+    $.ajax({
+        url: url,
+        type: 'GET',
+        cache: false,
+        contentType: false,
+        processData: false,
+        timeout: 10000,
+        tryCount: 0,
+        retryLimit: 5
+    }).done(function(data) {
+        if (data.Response !== "Error") {
+            var resp = data[base];
+            Object.keys(resp).forEach(function(currency) {
+                addRate(base, currency, ts, resp[currency]);
+                rates.map(function(rate) {
+                    if (rate.currency === currency) {
+                        rate.rate = String(resp[currency]);
+                    }
+                });
+            });
+
+            return resolve(rates);
+        } else {
+            // {"Response":"Error","Message":"Rate limit excedeed!","Type":99,"Aggregated":false,"Data":[],"YourCalls":{"hour":{"Histo":1661},"minute":{"Histo":364},"second":{"Histo":1}},"MaxLimits":{"Hour":8000,"Minute":300,"Second":15}}
+            if (data.Type === 99) {
+                var ms = data.YourCalls.second.Histo;
+                var mm = data.YourCalls.minute.Histo;
+                var mh = data.YourCalls.hour.Histo;
+                var ls = data.MaxLimits.Second;
+                var lm = data.MaxLimits.Minute;
+                var lh = data.MaxLimits.Hour;
+
+                var delay = 0;
+                if (ms > ls) { delay = 1000; }
+                if (mm > lm) { delay = 1000 * 60; }
+                if (mh > lh) { delay = 1000 * 60 * 60; } // who's going to wait an hour?
+
+                this.tryCount++;
+                if (this.tryCount <= this.retryLimit) {
+                    var self = this;
+                    window.setTimeout(function() {
+                        $.ajax(self);
+                    }, delay);
+                    return;
+                }
+            }
+            return reject(JSON.stringify(data));
+        }
+    }).fail(function(xhr, status, error) {
+        return reject(error);
+    });
+}
+
+function addRate(from, to, ts, rate) {
+    if (cachedRate(from, to, ts) == -1) {
+        app.rates.push({from: from, to: to, ts: ts, rate: rate});
+    }
+}
+
 function cachedRate(from, to, ts) {
     for (var i = 0; i < app.rates.length; i++) {
         var r = app.rates[i];
-        if (r.from === from && r.to === to && r.ts === ts) {
+        if (r.ts === ts && r.from === from && r.to === to) {
             return r.rate;
         }
     }

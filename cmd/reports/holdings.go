@@ -2,7 +2,6 @@ package reports
 
 import (
 	"errors"
-	"time"
 
 	"github.com/mathieugilbert/cryptotax/models"
 	"github.com/shopspring/decimal"
@@ -38,15 +37,10 @@ func (r *Holdings) Build(ts []*models.Trade, c Converter) error {
 	}
 
 	for curr := range cost {
-		val := c.Convert(bal[curr], curr, r.Currency, time.Now())
-		gain := val.Div(cost[curr]).Sub(decimal.NewFromFloat(1))
-
 		r.Items = append(r.Items, &HoldingItem{
 			Asset:  curr,
 			Amount: bal[curr],
 			ACB:    cost[curr],
-			Value:  val,
-			Gain:   gain,
 		})
 	}
 

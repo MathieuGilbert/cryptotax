@@ -145,7 +145,7 @@ func rateConverter(rates []*reports.RateRequest) reports.Converter {
 								return decimal.NewFromFloat(0)
 							}
 
-							return amount.Mul(rate)
+							return amount.Div(rate)
 						}
 					}
 				}

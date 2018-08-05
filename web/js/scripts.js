@@ -79,8 +79,8 @@ async function getLiveRates(from, tos, resolve, reject) {
         timeout: 5000
     }).done(function(data) {
         if (data["Response"] !== "Error") {
-            Object.keys(resp).forEach(function(c) {
-                rates.push({"currency" : c, "rate" : resp[c]});
+            Object.keys(data).forEach(function(c) {
+                rates.push({"currency" : c, "rate" : data[c]});
             });
         } else {
             return reject(JSON.stringify(data));
@@ -180,12 +180,12 @@ function getRates(base, rates, ts, resolve, reject) {
                 if (this.tryCount <= this.retryLimit) {
                     var self = this;
                     window.setTimeout(function() {
-                        $.ajax(self);
+                        return; $.ajax(self);
                     }, delay);
-                    return;
                 }
+            } else {
+                return reject(JSON.stringify(data));
             }
-            return reject(JSON.stringify(data));
         }
     }).fail(function(xhr, status, error) {
         return reject(error);

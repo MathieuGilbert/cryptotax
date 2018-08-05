@@ -36,20 +36,10 @@ Vue.component('report-viewer', {
             handler: function(report) {
                 if (report.type !== "" && report.currency !== "" && report.asOf !== "") {
                     loadReport(report);
-                    //.then(function(x) {
-                    //    console.log("done");
-                    //    console.log(x);
-                    //    console.log(app.rates.length);
-                    //});
                 }
             },
             deep: true
-        },
-        //rates: {
-        //    handler: function(rates) {
-        //        console.log(rates.length);
-        //    }
-        //}
+        }
     }
 });
 
@@ -59,6 +49,7 @@ new Vue({
 });
 
 async function loadReport(report) {
+    app.loadingReport = true;
     app.reportItems.splice(0, app.reportItems.length);
     setError("");
 
@@ -74,7 +65,7 @@ async function loadReport(report) {
         timeout: 21000
     }).done(function(data) {
         if (data.error.length) {
-            setError(data.error); // TODO: make this work with vue data
+            setError(data.error);
             return;
         }
 
@@ -90,12 +81,21 @@ async function loadReport(report) {
             }));
         }
 
+        $(document).ajaxStop(function() {
+            if (app.loadingReport === true) {
+                getComputedReport(report, items);
+            }
+            app.loadingReport = false;
+        });
+
         Promise.all(promises).then(function() {
             console.log(JSON.stringify(items));
-            getComputedReport(report, items);
-    	});
+            //app.loadingReport = true;
+    	}).catch(function(e) {
+            console.log(e);
+        });
     }).fail(function(xhr, status, error) {
-        console.log("Error loading report");
+        console.log(error);
     });
 }
 
@@ -108,7 +108,7 @@ function getComputedReport(report, rates) {
         rates: rates,
         CSRFToken: $('input[name="csrf_token"]').val()
     });
-    debugger;
+
     $.ajax({
         url: "/report",
         type: "POST",
@@ -118,7 +118,6 @@ function getComputedReport(report, rates) {
         processData: false,
         timeout: 5000
     }).done(function(data) {
-        debugger;
         if (data.error.length) {
             setError(data.error); // TODO: make this work with vue data
             return;
@@ -132,17 +131,23 @@ function getComputedReport(report, rates) {
             getLiveRates(app.report.currency, currs, resolve, reject);
         });
 
-        p.then((rate) => {
-            var amount = Number(item.amount)
-            var value = amount * rate;
-            var gain = value / amount - 1;
+        p.then((rates) => {
+            data.items.map(item => {
+                var amount = Number(item.amount);
+                var curr = item.asset;
+                var rate = rates.filter(r => r.currency === curr);
+                if (rate.length > 0) {
+                    var value = rate[0].rate === 0 ? 0 : amount / rate[0].rate;
+                    var gain = value / item.acb - 1;
 
-            app.reportItems.push({
-                asset: item.asset,
-                amount: amount,
-                acb: item.acb,
-                value: value,
-                gain: gain
+                    app.reportItems.push({
+                        asset: item.asset,
+                        amount: amount,
+                        acb: item.acb,
+                        value: value,
+                        gain: gain
+                    });
+                }
             });
         });
 

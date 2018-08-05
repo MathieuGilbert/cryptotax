@@ -757,6 +757,7 @@ func (env *Env) postReportAsync(w http.ResponseWriter, r *http.Request) {
 		case *reports.Oversold:
 			resp.Error = err.Error()
 		default:
+			log.Printf("Build report error: %v", err)
 			http.Error(w, "Error building report", http.StatusInternalServerError)
 			return
 		}

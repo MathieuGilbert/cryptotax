@@ -189,6 +189,7 @@ func expandAgainstBase(ts []*models.Trade, base string, c Converter) (rts []*mod
 	return
 }
 
+// tally the total cost and balance for each currency
 func tally(ts []*models.Trade) (map[string]decimal.Decimal, map[string]decimal.Decimal, error) {
 	sort.Sort(byDate(ts))
 

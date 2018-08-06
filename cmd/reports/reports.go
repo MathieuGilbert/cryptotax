@@ -29,22 +29,6 @@ func (e *Oversold) Error() string {
 	return s[:len(s)-1]
 }
 
-// Trades are sortable by date
-type byDate []*models.Trade
-
-func (t byDate) Len() int {
-	return len(t)
-}
-func (t byDate) Swap(i, j int) {
-	t[i], t[j] = t[j], t[i]
-}
-func (t byDate) Less(i, j int) bool {
-	if t[i].Date == t[j].Date {
-		return t[i].Amount.GreaterThan(t[j].Amount)
-	}
-	return t[i].Date.Before(t[j].Date)
-}
-
 // Converter currency conversion function
 type Converter struct {
 	Convert func(amount decimal.Decimal, from, to string, on time.Time) decimal.Decimal
@@ -62,9 +46,26 @@ type Rate struct {
 	Rate     string `json:"rate"`
 }
 
-// add extra trades so all are against base currency
-func expandAgainstBase(ts []*models.Trade, base string, convert Convert) (rts []*models.Trade, err error) {
-	sort.Sort(byDate(ts))
+// Trades are sortable by date
+type byDate []*models.Trade
+
+func (t byDate) Len() int {
+	return len(t)
+}
+func (t byDate) Swap(i, j int) {
+	t[i], t[j] = t[j], t[i]
+}
+func (t byDate) Less(i, j int) bool {
+	if t[i].Date == t[j].Date {
+		return t[i].Amount.GreaterThan(t[j].Amount)
+	}
+	return t[i].Date.Before(t[j].Date)
+}
+
+// Analyze returns list of rates needed for the trades
+func Analyze(ts []*models.Trade, base string) (rrs []*RateRequest, err error) {
+	// collect rates by timestamp, so easier to batch calls
+	rmap := make(map[int64][]*Rate, 0)
 
 	for _, t := range ts {
 		if t.BaseCurrency != base {
@@ -189,7 +190,6 @@ func expandAgainstBase(ts []*models.Trade, base string, c Converter) (rts []*mod
 	return
 }
 
-// tally the total cost and balance for each currency
 func tally(ts []*models.Trade) (map[string]decimal.Decimal, map[string]decimal.Decimal, error) {
 	sort.Sort(byDate(ts))
 

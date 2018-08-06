@@ -87,15 +87,15 @@ func TestBuildHoldings(t *testing.T) {
 		Asset:  "AAA",
 		Amount: decimal.NewFromFloat(99),
 		ACB:    decimal.NewFromFloat(592.502563),
-		Value:  decimal.NewFromFloat(198),
-		Gain:   decimal.NewFromFloat(-0.665824),
+		Value:  decimal.NewFromFloat(0),
+		Gain:   decimal.NewFromFloat(0),
 	}
 	exp2 := &HoldingItem{
 		Asset:  "BBB",
 		Amount: decimal.NewFromFloat(30),
 		ACB:    decimal.NewFromFloat(66.00),
-		Value:  decimal.NewFromFloat(60),
-		Gain:   decimal.NewFromFloat(-0.090909),
+		Value:  decimal.NewFromFloat(0),
+		Gain:   decimal.NewFromFloat(0),
 	}
 
 	item := &HoldingItem{}

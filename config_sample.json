@@ -1,0 +1,10 @@
+{
+    "Database": {
+        "Host": "localhost",
+        "Port": 5432,
+        "User": "cryptotax",
+        "DBName": "cryptotax_dev",
+        "Password": "password!@#",
+        "SSLMode": "disable"
+    }
+}

@@ -128,12 +128,6 @@
   revision = "2caba252f4dc53eaf6b553000885530023f54623"
 
 [[projects]]
-  name = "gopkg.in/gomail.v2"
-  packages = ["."]
-  revision = "41f3572897373c5538c50a2402db15db079fa4fd"
-  version = "2.0.0"
-
-[[projects]]
   name = "gopkg.in/gormigrate.v1"
   packages = ["."]
   revision = "21b0b93e8253d575d9185974835423f98d30158d"
@@ -142,6 +136,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "0470685393b88c3ed0f2ab27ef7588a75ce6f173e7b13c3889066f99782ad95a"
+  inputs-digest = "b500862a5f7eb2dbf0c2054413451e9219b23199945f5244087d4aae5fdaad28"
   solver-name = "gps-cdcl"
   solver-version = 1

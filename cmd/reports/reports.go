@@ -2,6 +2,7 @@ package reports
 
 import (
 	"bytes"
+	"sort"
 	"time"
 
 	"github.com/mathieugilbert/cryptotax/models"
@@ -28,10 +29,29 @@ func (e *Oversold) Error() string {
 	return s[:len(s)-1]
 }
 
+// Convert function defining how to perform conversion
 type Convert func(amount decimal.Decimal, from, to string, on time.Time) (decimal.Decimal, error)
+
+// Trades are sortable by date
+type byDate []*models.Trade
+
+func (t byDate) Len() int {
+	return len(t)
+}
+func (t byDate) Swap(i, j int) {
+	t[i], t[j] = t[j], t[i]
+}
+func (t byDate) Less(i, j int) bool {
+	if t[i].Date == t[j].Date {
+		return t[i].Amount.GreaterThan(t[j].Amount)
+	}
+	return t[i].Date.Before(t[j].Date)
+}
 
 // add extra trades so all are against base currency
 func expandAgainstBase(ts []*models.Trade, base string, convert Convert) (rts []*models.Trade, err error) {
+	sort.Sort(byDate(ts))
+
 	for _, t := range ts {
 		fa, err := convert(t.FeeAmount, t.FeeCurrency, base, t.Date)
 		if err != nil {
@@ -126,6 +146,8 @@ func expandAgainstBase(ts []*models.Trade, base string, convert Convert) (rts []
 }
 
 func tally(ts []*models.Trade) (map[string]decimal.Decimal, map[string]decimal.Decimal, error) {
+	sort.Sort(byDate(ts))
+
 	cost := make(map[string]decimal.Decimal)
 	bal := make(map[string]decimal.Decimal)
 	oversold := make(map[string]decimal.Decimal)

@@ -127,7 +127,7 @@ func main() {
 
 // loadConfig reads the config file into the global Config variable
 func loadConfig() {
-	c, err := config.Read("config.json")
+	c, err := config.Read("private/config.json")
 	if err != nil {
 		log.Fatal(err)
 	}

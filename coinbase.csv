@@ -1,0 +1,6 @@
+Transactions
+User,name@example.com,abc123
+
+Timestamp,Transaction Type,Asset,Quantity Transacted,CAD Spot Price at Transaction,CAD Amount Transacted (Inclusive of Coinbase Fees),Address,Notes
+07/01/2017,Buy,BTC,0.25306077,3800.00,1000.00,"",Bought 0.25306077 BTC for $1000.00 CAD.
+07/01/2017,Buy,ETH,2.74751693,350.00,1000.00,"",Bought 2.74751693 ETH for $1000.00 CAD.

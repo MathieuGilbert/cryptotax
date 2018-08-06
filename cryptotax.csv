@@ -1,0 +1,2 @@
+date,action,amount,currency,base_amount,base_currency,fee_amount,fee_currency
+2017-12-01,buy,10000.0,XRB,0.200002,BTC,0.10,XRB
